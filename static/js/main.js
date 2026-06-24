@@ -1,199 +1,323 @@
-/* ============================================
-   IDP Morphing Wing Frontend - Main JavaScript
-   Interactive controls, API calls, visualizations
-   ============================================ */
+/**
+ * IDP Morphing Wing — Main Application Controller
+ */
+import { WingScene, ParticleBackground } from './wing3d.js';
+import { ResponseSurfaceScene } from './surface3d.js';
 
-// ===== GLOBAL STATE =====
 const appState = {
   constraints: {},
+  cl_max: {},
   predictions: [],
   recommendations: [],
   charts: {},
-  selectedPrediction: null,
+  surfaceData: null,
+  wingScene: null,
+  surfaceScene: null,
 };
 
-// ===== INITIALIZATION =====
-document.addEventListener("DOMContentLoaded", async function () {
-  console.log("🚀 Initializing IDP ML Frontend...");
+const CHART_COLORS = {
+  cyan: 'rgba(0, 212, 255, 0.8)',
+  purple: 'rgba(124, 58, 237, 0.8)',
+  green: 'rgba(16, 185, 129, 0.8)',
+  red: 'rgba(239, 68, 68, 0.8)',
+  grid: 'rgba(255, 255, 255, 0.06)',
+  text: '#94a3b8',
+};
 
-  // Set current year in footer
-  document.getElementById("currentYear").textContent = new Date().getFullYear();
+Chart.defaults.color = CHART_COLORS.text;
+Chart.defaults.borderColor = CHART_COLORS.grid;
+Chart.defaults.font.family = "'Outfit', sans-serif";
 
-  // Load constraints
+// ===== INIT =====
+document.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+  initTabs();
+  initRevealObserver();
+  initSliderFills();
+  initEventListeners();
+
+  const bgCanvas = document.getElementById('bgCanvas');
+  if (bgCanvas) new ParticleBackground(bgCanvas);
+
   await loadConstraints();
-
-  // Initialize event listeners
-  initializeEventListeners();
-
-  // Draw wing visualization
-  drawWing();
-
-  // Initialize charts
+  initWing3D();
   await initializeCharts();
+  await loadResponseSurface();
 
-  console.log("✓ Frontend initialized successfully");
+  setTimeout(hideLoader, 1800);
 });
 
-// ===== CONSTRAINTS LOADING =====
+function hideLoader() {
+  document.getElementById('loader').classList.add('hidden');
+  document.querySelectorAll('.reveal').forEach((el, i) => {
+    setTimeout(() => el.classList.add('visible'), (el.dataset.delay || i * 80) | 0);
+  });
+}
+
+// ===== TABS =====
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.remove('active'));
+      const panel = document.getElementById(tab);
+      panel.classList.add('active');
+
+      panel.querySelectorAll('.reveal:not(.visible)').forEach((el, i) => {
+        setTimeout(() => el.classList.add('visible'), i * 80);
+      });
+
+      if (tab === 'forward' && appState.surfaceScene) {
+        setTimeout(() => appState.surfaceScene._resize(), 100);
+      }
+      if (tab === 'overview' && appState.wingScene) {
+        setTimeout(() => appState.wingScene._resize(), 100);
+      }
+      if (tab === 'results') animateCounters();
+    });
+  });
+}
+
+function initRevealObserver() {
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) e.target.classList.add('visible');
+      });
+    },
+    { threshold: 0.1 },
+  );
+  document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+}
+
+// ===== SLIDER FILLS =====
+function initSliderFills() {
+  const sliders = [
+    { slider: 'lowerVoltageSlider', fill: 'lowerVoltageFill', min: -500, max: -50 },
+    { slider: 'upperVoltageSlider', fill: 'upperVoltageFill', min: 50, max: 1500 },
+    { slider: 'pitchAngleSlider', fill: 'pitchAngleFill', min: -4, max: 20 },
+    { slider: 'inversePitchSlider', fill: 'inversePitchFill', min: -4, max: 20 },
+  ];
+
+  sliders.forEach(({ slider, fill, min, max }) => {
+    const el = document.getElementById(slider);
+    const fillEl = document.getElementById(fill);
+    if (!el || !fillEl) return;
+
+    const update = () => {
+      const pct = ((el.value - min) / (max - min)) * 100;
+      fillEl.style.width = `${pct}%`;
+    };
+    el.addEventListener('input', update);
+    update();
+  });
+}
+
+function syncSliderFill(sliderId) {
+  const el = document.getElementById(sliderId);
+  if (!el) return;
+  el.dispatchEvent(new Event('input'));
+}
+
+// ===== 3D =====
+function initWing3D() {
+  const canvas = document.getElementById('wingCanvas');
+  if (!canvas) return;
+  appState.wingScene = new WingScene(canvas);
+  appState.wingScene.setDeflection(-3.7164);
+  updateOverviewDeflection(-3.7164);
+}
+
+async function loadResponseSurface(pitch) {
+  const p = pitch ?? parseFloat(document.getElementById('pitchAngle')?.value ?? 8);
+  try {
+    const res = await fetch(`/api/response-surface?pitch=${p}`);
+    const json = await res.json();
+    appState.surfaceData = json.data;
+
+    const canvas = document.getElementById('surfaceCanvas');
+    if (!canvas) return;
+
+    if (!appState.surfaceScene) {
+      appState.surfaceScene = new ResponseSurfaceScene(canvas);
+    }
+    appState.surfaceScene.updateSurface(json.data, json.pitch);
+  } catch (err) {
+    console.error('Surface load error:', err);
+  }
+}
+
+// ===== CONSTRAINTS =====
 async function loadConstraints() {
   try {
-    const response = await fetch("/api/constraints");
-    const data = await response.json();
+    const res = await fetch('/api/constraints');
+    const data = await res.json();
     appState.constraints = data.constraints;
     appState.cl_max = data.cl_max_by_pitch;
-    console.log("✓ Constraints loaded:", appState.constraints);
-  } catch (error) {
-    console.error("✗ Error loading constraints:", error);
+  } catch (err) {
+    console.error('Constraints error:', err);
   }
 }
 
 // ===== EVENT LISTENERS =====
-function initializeEventListeners() {
-  // Forward prediction form
-  document
-    .getElementById("forwardForm")
-    .addEventListener("submit", handleForwardPrediction);
+function initEventListeners() {
+  document.getElementById('forwardForm').addEventListener('submit', handleForwardPrediction);
+  document.getElementById('inverseForm').addEventListener('submit', handleInversePrediction);
 
-  // Inverse control form
-  document
-    .getElementById("inverseForm")
-    .addEventListener("submit", handleInversePrediction);
+  bindSlider('lowerVoltageSlider', 'lowerVoltage');
+  bindSlider('upperVoltageSlider', 'upperVoltage');
+  bindSlider('pitchAngleSlider', 'pitchAngle', () => loadResponseSurface());
+  bindSlider('inversePitchSlider', 'inversePitchAngle');
 
-  // Slider synchronization (Forward)
-  document
-    .getElementById("lowerVoltageSlider")
-    .addEventListener("input", (e) => {
-      document.getElementById("lowerVoltage").value = e.target.value;
-    });
-  document.getElementById("lowerVoltage").addEventListener("change", (e) => {
-    document.getElementById("lowerVoltageSlider").value = e.target.value;
+  document.getElementById('refreshSurface')?.addEventListener('click', () => {
+    const pitch = parseFloat(document.getElementById('pitchAngle').value);
+    loadResponseSurface(pitch);
+    showToast('Response surface refreshed', 'success');
   });
+}
 
-  document
-    .getElementById("upperVoltageSlider")
-    .addEventListener("input", (e) => {
-      document.getElementById("upperVoltage").value = e.target.value;
-    });
-  document.getElementById("upperVoltage").addEventListener("change", (e) => {
-    document.getElementById("upperVoltageSlider").value = e.target.value;
-  });
+function bindSlider(sliderId, inputId, onChange) {
+  const slider = document.getElementById(sliderId);
+  const input = document.getElementById(inputId);
+  if (!slider || !input) return;
 
-  document.getElementById("pitchAngleSlider").addEventListener("input", (e) => {
-    document.getElementById("pitchAngle").value = e.target.value;
+  slider.addEventListener('input', (e) => {
+    input.value = e.target.value;
+    syncSliderFill(sliderId);
+    onChange?.();
   });
-  document.getElementById("pitchAngle").addEventListener("change", (e) => {
-    document.getElementById("pitchAngleSlider").value = e.target.value;
+  input.addEventListener('change', (e) => {
+    slider.value = e.target.value;
+    syncSliderFill(sliderId);
+    onChange?.();
   });
-
-  // Slider synchronization (Inverse)
-  document
-    .getElementById("inversePitchSlider")
-    .addEventListener("input", (e) => {
-      document.getElementById("inversePitchAngle").value = e.target.value;
-    });
-  document
-    .getElementById("inversePitchAngle")
-    .addEventListener("change", (e) => {
-      document.getElementById("inversePitchSlider").value = e.target.value;
-    });
 }
 
 // ===== FORWARD PREDICTION =====
 async function handleForwardPrediction(e) {
   e.preventDefault();
+  const errorDiv = document.getElementById('forwardErrors');
+  errorDiv.style.display = 'none';
 
-  const errorDiv = document.getElementById("forwardErrors");
-  errorDiv.style.display = "none";
+  const btn = document.getElementById('forwardSubmit');
+  btn.classList.add('loading');
 
-  const lower_v = parseFloat(document.getElementById("lowerVoltage").value);
-  const upper_v = parseFloat(document.getElementById("upperVoltage").value);
-  const pitch = parseFloat(document.getElementById("pitchAngle").value);
+  const lower_v = parseFloat(document.getElementById('lowerVoltage').value);
+  const upper_v = parseFloat(document.getElementById('upperVoltage').value);
+  const pitch = parseFloat(document.getElementById('pitchAngle').value);
 
   try {
-    const response = await fetch("/api/predict-forward", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lower_voltage: lower_v,
-        upper_voltage: upper_v,
-        pitch_angle: pitch,
-      }),
+    const res = await fetch('/api/predict-forward', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lower_voltage: lower_v, upper_voltage: upper_v, pitch_angle: pitch }),
     });
-
-    const data = await response.json();
+    const data = await res.json();
 
     if (!data.success) {
       displayErrors(data.errors || [data.error], errorDiv);
       return;
     }
 
-    // Update display
-    const result = data.results;
-    document.getElementById("deflectionResult").innerHTML =
-      `<div class="value">${result.deflection_mm}</div><div class="unit">mm</div>`;
-    document.getElementById("clResult").innerHTML =
-      `<div class="value">${result.cl}</div><div class="unit">—</div>`;
-    document.getElementById("cdResult").innerHTML =
-      `<div class="value">${result.cd}</div><div class="unit">—</div>`;
-    document.getElementById("ldResult").innerHTML =
-      `<div class="value">${result.l_d_ratio}</div><div class="unit">—</div>`;
+    const r = data.results;
+    animateMetric('deflectionResult', r.deflection_mm, 'mm');
+    animateMetric('clResult', r.cl, '—');
+    animateMetric('cdResult', r.cd, '—');
+    animateMetric('ldResult', r.l_d_ratio, '—');
 
-    // Store prediction
-    appState.predictions.push(result);
+    appState.predictions.push(r);
+    appState.wingScene?.setDeflection(r.deflection_mm);
+    updateOverviewDeflection(r.deflection_mm);
 
-    // Update wing visualization
-    updateWingDeflection(result.deflection_mm);
-
-    // Update charts
-    updateAeroChart(result.cl, result.cd);
+    updateAeroChart(r.cl, r.cd);
     updateHistoryChart();
 
-    // Show success feedback
-    showSuccessFeedback("Prediction complete! ✓");
-  } catch (error) {
-    console.error("Error:", error);
-    displayErrors([error.message], errorDiv);
+    if (appState.surfaceScene && appState.surfaceData) {
+      appState.surfaceScene.highlightPoint(lower_v, upper_v, r.cl, appState.surfaceData);
+    }
+
+    showToast('Prediction complete', 'success');
+  } catch (err) {
+    displayErrors([err.message], errorDiv);
+  } finally {
+    btn.classList.remove('loading');
   }
+}
+
+function updateOverviewDeflection(val) {
+  const el = document.getElementById('overviewDeflection');
+  if (el) el.textContent = `${val.toFixed(4)} mm`;
+}
+
+function animateMetric(containerId, value, unit) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const valEl = container.querySelector('.value') || container;
+  const isSpan = valEl.classList?.contains('value');
+  const target = parseFloat(value);
+  const start = parseFloat(valEl.textContent || valEl.dataset?.value || 0);
+  const duration = 600;
+  const startTime = performance.now();
+
+  const step = (now) => {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const current = start + (target - start) * eased;
+    const formatted = Math.abs(target) < 0.01 ? current.toFixed(6) : current.toFixed(4);
+
+    if (isSpan) {
+      valEl.textContent = formatted;
+      valEl.classList.add('flash');
+      setTimeout(() => valEl.classList.remove('flash'), 600);
+    } else {
+      container.innerHTML = `<span class="value">${formatted}</span><span class="unit">${unit}</span>`;
+    }
+
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 // ===== INVERSE PREDICTION =====
 async function handleInversePrediction(e) {
   e.preventDefault();
+  const errorDiv = document.getElementById('inverseErrors');
+  errorDiv.style.display = 'none';
 
-  const errorDiv = document.getElementById("inverseErrors");
-  errorDiv.style.display = "none";
+  const btn = document.getElementById('inverseSubmit');
+  btn.classList.add('loading');
 
-  const target_cl = parseFloat(document.getElementById("targetCL").value);
-  const pitch = parseFloat(document.getElementById("inversePitchAngle").value);
-  const use_max_cd = document.getElementById("useMaxCD").checked;
-  const max_cd = use_max_cd
-    ? parseFloat(document.getElementById("maxCD").value)
-    : null;
+  const target_cl = parseFloat(document.getElementById('targetCL').value);
+  const pitch = parseFloat(document.getElementById('inversePitchAngle').value);
+  const use_max_cd = document.getElementById('useMaxCD').checked;
+  const max_cd = use_max_cd ? parseFloat(document.getElementById('maxCD').value) : null;
 
-  // Validate CL against max
   const cl_max = appState.cl_max[Math.round(pitch)] || 0.3079;
   if (target_cl > cl_max) {
     displayErrors(
-      [
-        `Target CL (${target_cl}) exceeds maximum achievable at pitch ${pitch}° (${cl_max.toFixed(4)})`,
-      ],
+      [`Target CL (${target_cl}) exceeds maximum at pitch ${pitch}° (${cl_max.toFixed(4)})`],
       errorDiv,
     );
+    btn.classList.remove('loading');
     return;
   }
 
   try {
-    const response = await fetch("/api/predict-inverse", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        target_cl: target_cl,
-        pitch_angle: pitch,
-        max_cd: max_cd,
-      }),
+    const res = await fetch('/api/predict-inverse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_cl, pitch_angle: pitch, max_cd }),
     });
-
-    const data = await response.json();
+    const data = await res.json();
 
     if (!data.success) {
       displayErrors(data.errors || [data.error], errorDiv);
@@ -202,502 +326,275 @@ async function handleInversePrediction(e) {
 
     appState.recommendations = data.recommendations;
     displayRecommendations(data);
-
-    showSuccessFeedback("Inverse search complete! ✓");
-  } catch (error) {
-    console.error("Error:", error);
-    displayErrors([error.message], errorDiv);
+    showToast('Inverse search complete', 'success');
+  } catch (err) {
+    displayErrors([err.message], errorDiv);
+  } finally {
+    btn.classList.remove('loading');
   }
 }
 
-// ===== DISPLAY RECOMMENDATIONS =====
+// ===== RECOMMENDATIONS =====
 function displayRecommendations(data) {
-  const container = document.getElementById("recommendationsContainer");
-  const tableDiv = document.getElementById("recommendationsTable");
+  const container = document.getElementById('recommendationsContainer');
+  const tableDiv = document.getElementById('recommendationsTable');
 
-  let html = '<div class="row">';
-
+  let html = '<div class="rec-grid">';
   data.recommendations.forEach((rec, idx) => {
-    const constraintStatus = rec.satisfies_constraint
+    const badge = rec.satisfies_constraint
       ? '<span class="constraint-badge satisfied"><i class="fas fa-check"></i> CD OK</span>'
       : '<span class="constraint-badge violated"><i class="fas fa-times"></i> CD High</span>';
 
     html += `
-        <div class="col-md-6 mb-3">
-            <div class="recommendation-box">
-                <div class="rank-badge">
-                    ${idx + 1}
-                </div>
-                <div class="voltage-pair">
-                    <div class="voltage-item">
-                        <label>Lower V</label>
-                        <div class="value">${rec.lower_voltage}</div>
-                        <small class="text-muted">V</small>
-                    </div>
-                    <div class="voltage-item">
-                        <label>Upper V</label>
-                        <div class="value">${rec.upper_voltage}</div>
-                        <small class="text-muted">V</small>
-                    </div>
-                </div>
-                <hr class="my-2">
-                <div class="row text-center">
-                    <div class="col-6">
-                        <small class="text-muted d-block">Predicted CL</small>
-                        <strong style="color: var(--success-color);">${rec.predicted_cl}</strong>
-                    </div>
-                    <div class="col-6">
-                        <small class="text-muted d-block">Predicted CD</small>
-                        <strong style="color: var(--success-color);">${rec.predicted_cd}</strong>
-                    </div>
-                </div>
-                <div class="row text-center mt-2">
-                    <div class="col-6">
-                        <small class="text-muted d-block">CL Error</small>
-                        <span>${rec.cl_error.toFixed(6)}</span>
-                    </div>
-                    <div class="col-6">
-                        <small class="text-muted d-block">CD Violation</small>
-                        <span>${rec.cd_violation.toFixed(6)}</span>
-                    </div>
-                </div>
-                <div class="mt-2" style="text-align: right;">
-                    ${constraintStatus}
-                </div>
-            </div>
+      <div class="recommendation-box">
+        <div class="rank-badge">${idx + 1}</div>
+        <div class="voltage-pair">
+          <div class="voltage-item">
+            <label>Lower V</label>
+            <div class="value">${rec.lower_voltage}</div>
+            <small>V</small>
+          </div>
+          <div class="voltage-item">
+            <label>Upper V</label>
+            <div class="value">${rec.upper_voltage}</div>
+            <small>V</small>
+          </div>
         </div>
-        `;
+        <div class="rec-stats">
+          <div><small>Predicted CL</small><strong style="color:var(--green)">${rec.predicted_cl}</strong></div>
+          <div><small>Predicted CD</small><strong style="color:var(--green)">${rec.predicted_cd}</strong></div>
+          <div><small>CL Error</small><span>${rec.cl_error.toFixed(6)}</span></div>
+          <div><small>CD Violation</small><span>${rec.cd_violation.toFixed(6)}</span></div>
+        </div>
+        <div style="text-align:right;margin-top:10px">${badge}</div>
+      </div>`;
   });
-
-  html += "</div>";
+  html += '</div>';
   container.innerHTML = html;
 
-  // Create table
   let tableHtml = `
-    <table class="table table-striped table-sm">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Lower V (V)</th>
-                <th>Upper V (V)</th>
-                <th>Predicted CL</th>
-                <th>Predicted CD</th>
-                <th>CL Error</th>
-                <th>Constraint</th>
-            </tr>
-        </thead>
-        <tbody>
-    `;
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Lower V</th><th>Upper V</th>
+        <th>CL</th><th>CD</th><th>CL Error</th><th>Constraint</th>
+      </tr></thead><tbody>`;
 
   data.recommendations.forEach((rec, idx) => {
     const badge = rec.satisfies_constraint
-      ? '<span class="badge bg-success">✓ Satisfied</span>'
-      : '<span class="badge bg-warning">✗ Violated</span>';
-
-    tableHtml += `
-        <tr>
-            <td><strong>${idx + 1}</strong></td>
-            <td>${rec.lower_voltage}</td>
-            <td>${rec.upper_voltage}</td>
-            <td>${rec.predicted_cl}</td>
-            <td>${rec.predicted_cd}</td>
-            <td>${rec.cl_error.toFixed(6)}</td>
-            <td>${badge}</td>
-        </tr>
-        `;
+      ? '<span class="badge badge-success">✓ Satisfied</span>'
+      : '<span class="badge badge-warning">✗ Violated</span>';
+    tableHtml += `<tr>
+      <td><strong>${idx + 1}</strong></td>
+      <td>${rec.lower_voltage}</td><td>${rec.upper_voltage}</td>
+      <td>${rec.predicted_cl}</td><td>${rec.predicted_cd}</td>
+      <td>${rec.cl_error.toFixed(6)}</td><td>${badge}</td>
+    </tr>`;
   });
-
-  tableHtml += "</tbody></table>";
+  tableHtml += '</tbody></table>';
   tableDiv.innerHTML = tableHtml;
 }
 
-// ===== ERROR DISPLAY =====
+// ===== TOGGLE MAX CD (global for inline handler) =====
+window.toggleMaxCD = function () {
+  const cb = document.getElementById('useMaxCD');
+  const input = document.getElementById('maxCD');
+  input.disabled = !cb.checked;
+  if (cb.checked) input.focus();
+};
+
+// ===== ERRORS & TOASTS =====
 function displayErrors(errors, errorDiv) {
-  let html =
-    '<strong><i class="fas fa-exclamation-triangle"></i> Validation Errors:</strong><ul class="mb-0">';
-  errors.forEach((err) => {
-    html += `<li>${err}</li>`;
-  });
-  html += "</ul>";
-  errorDiv.innerHTML = html;
-  errorDiv.style.display = "block";
+  errorDiv.innerHTML =
+    '<strong><i class="fas fa-exclamation-triangle"></i> Validation Errors</strong><ul>' +
+    errors.map((e) => `<li>${e}</li>`).join('') +
+    '</ul>';
+  errorDiv.style.display = 'block';
+  showToast(errors[0], 'error');
 }
 
-// ===== SUCCESS FEEDBACK =====
-function showSuccessFeedback(message) {
-  const alert = document.createElement("div");
-  alert.className = "alert alert-success alert-dismissible fade show mt-3";
-  alert.style.margin = "15px";
-  alert.innerHTML = `
-        <strong>✓ ${message}</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-
-  // Find the first tab pane and insert alert at the top
-  const tabPane = document.querySelector(".tab-pane.show");
-  if (tabPane) {
-    tabPane.insertAdjacentElement("afterbegin", alert);
-  } else {
-    // Fallback: append to container
-    const container = document.querySelector(".container-fluid");
-    if (container) {
-      container.appendChild(alert);
-    }
-  }
-
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i><span>${message}</span>`;
+  container.appendChild(toast);
   setTimeout(() => {
-    if (alert.parentNode) {
-      alert.remove();
-    }
-  }, 4000);
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(40px)';
+    toast.style.transition = '0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 }
 
-// ===== WING VISUALIZATION =====
-function drawWing() {
-  const canvas = document.getElementById("wingCanvas");
-  if (!canvas) return;
+// ===== COUNTERS =====
+function animateCounters() {
+  document.querySelectorAll('.augment-num[data-count]').forEach((el) => {
+    const target = parseInt(el.dataset.count, 10);
+    const duration = 1500;
+    const start = performance.now();
 
-  const ctx = canvas.getContext("2d");
-  const width = canvas.width;
-  const height = canvas.height;
-
-  // Clear canvas
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, width, height);
-
-  // Draw NACA 0009 symmetric airfoil
-  const scale = 3;
-  const offsetX = width / 4;
-  const offsetY = height / 2;
-
-  // Airfoil profile (simplified NACA 0009)
-  const airfoilPoints = generateNACA0009();
-
-  // Draw airfoil outline
-  ctx.strokeStyle = "#1f4e79";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-
-  airfoilPoints.forEach((point, index) => {
-    const x = offsetX + point[0] * scale;
-    const y = offsetY - point[1] * scale;
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      el.textContent = Math.round(target * eased).toLocaleString();
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   });
-  ctx.closePath();
-  ctx.stroke();
-
-  // Fill airfoil
-  ctx.fillStyle = "rgba(31, 78, 121, 0.1)";
-  ctx.fill();
-
-  // Draw MFC indicators
-  const mfcPositions = [
-    { x: offsetX + 40, y: offsetY - 20, label: "Upper MFC" },
-    { x: offsetX + 40, y: offsetY + 20, label: "Lower MFC" },
-  ];
-
-  mfcPositions.forEach((mfc) => {
-    ctx.fillStyle = "#2ecc71";
-    ctx.beginPath();
-    ctx.arc(mfc.x, mfc.y, 6, 0, 2 * Math.PI);
-    ctx.fill();
-
-    ctx.fillStyle = "#333";
-    ctx.font = "bold 10px Arial";
-    ctx.textAlign = "left";
-    ctx.fillText(mfc.label, mfc.x + 10, mfc.y + 3);
-  });
-
-  // Draw coordinate axes
-  ctx.strokeStyle = "#ccc";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([5, 5]);
-
-  ctx.beginPath();
-  ctx.moveTo(offsetX, 0);
-  ctx.lineTo(offsetX, height);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(0, offsetY);
-  ctx.lineTo(width, offsetY);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  // Labels
-  ctx.fillStyle = "#666";
-  ctx.font = "bold 12px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("Trailing Edge", offsetX + 55, height - 20);
-  ctx.fillText("Leading Edge", offsetX - 25, height - 20);
 }
 
-function generateNACA0009() {
-  const points = [];
-  const chord = 100;
-
-  for (let x = 0; x <= chord; x += 2) {
-    const t = 0.09; // 9% thickness
-    const c = chord;
-    const xt = x / c;
-
-    // NACA symmetric formula
-    const yt =
-      5 *
-      t *
-      (0.2969 * Math.sqrt(xt) -
-        0.126 * xt -
-        0.3516 * xt * xt +
-        0.2843 * xt * xt * xt -
-        0.1015 * xt * xt * xt * xt) *
-      c;
-
-    points.push([x, yt]);
-  }
-
-  // Return lower surface too
-  for (let x = chord; x >= 0; x -= 2) {
-    const t = 0.09;
-    const c = chord;
-    const xt = x / c;
-    const yt =
-      5 *
-      t *
-      (0.2969 * Math.sqrt(xt) -
-        0.126 * xt -
-        0.3516 * xt * xt +
-        0.2843 * xt * xt * xt -
-        0.1015 * xt * xt * xt * xt) *
-      c;
-    points.push([x, -yt]);
-  }
-
-  return points;
-}
-
-function updateWingDeflection(deflection) {
-  const canvas = document.getElementById("wingCanvas");
-  if (!canvas) return;
-
-  const ctx = canvas.getContext("2d");
-  drawWing();
-
-  // Draw deflection indicator
-  const width = canvas.width;
-  const height = canvas.height;
-  const offsetX = width / 4;
-  const offsetY = height / 2;
-  const scale = 3;
-
-  const deflectionPixels = (deflection / -8.47) * 40; // normalize to screen coords
-
-  // Draw deflection arc
-  ctx.strokeStyle = "#e74c3c";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([3, 3]);
-
-  const teX = offsetX + 105;
-  const teY = offsetY + deflectionPixels;
-
-  ctx.beginPath();
-  ctx.moveTo(offsetX + 105, offsetY);
-  ctx.lineTo(teX, teY);
-  ctx.stroke();
-
-  ctx.setLineDash([]);
-
-  // Draw deflection amount
-  ctx.fillStyle = "#e74c3c";
-  ctx.font = "bold 12px Arial";
-  ctx.textAlign = "left";
-  ctx.fillText(`Deflection: ${deflection.toFixed(2)} mm`, teX + 5, teY);
-}
-
-// ===== TOGGLE MAX CD =====
-function toggleMaxCD() {
-  const checkbox = document.getElementById("useMaxCD");
-  const input = document.getElementById("maxCD");
-  input.disabled = !checkbox.checked;
-  if (checkbox.checked) input.focus();
-}
-
-// ===== CHART INITIALIZATION =====
+// ===== CHARTS =====
 async function initializeCharts() {
-  // Accuracy Chart
-  const accuracyCtx = document.getElementById("accuracyChart");
+  const chartOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { usePointStyle: true, padding: 16 } } },
+  };
+
+  const accuracyCtx = document.getElementById('accuracyChart');
   if (accuracyCtx) {
     appState.charts.accuracy = new Chart(accuracyCtx, {
-      type: "bar",
+      type: 'bar',
       data: {
-        labels: [
-          "Structural\n(Deflection)",
-          "Aerodynamic\n(CL)",
-          "Aerodynamic\n(CD)",
-        ],
-        datasets: [
-          {
-            label: "Mean Absolute Error (MAE)",
-            data: [0.00164, 0.0022, 0.0021],
-            backgroundColor: [
-              "rgba(102, 126, 234, 0.8)",
-              "rgba(46, 204, 113, 0.8)",
-              "rgba(52, 152, 219, 0.8)",
-            ],
-            borderColor: ["#667eea", "#2ecc71", "#3498db"],
-            borderWidth: 2,
-            borderRadius: 8,
-          },
-        ],
+        labels: ['Structural (Deflection)', 'Aerodynamic (CL)', 'Aerodynamic (CD)'],
+        datasets: [{
+          label: 'MAE',
+          data: [0.00164, 0.0022, 0.0021],
+          backgroundColor: [CHART_COLORS.purple, CHART_COLORS.green, CHART_COLORS.cyan],
+          borderColor: ['#7c3aed', '#10b981', '#00d4ff'],
+          borderWidth: 2,
+          borderRadius: 8,
+        }],
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-          legend: { display: false },
-        },
+        ...chartOpts,
+        plugins: { ...chartOpts.plugins, legend: { display: false } },
         scales: {
           y: {
             beginAtZero: true,
-            ticks: {
-              callback: function (value) {
-                return value.toFixed(4);
-              },
-            },
+            grid: { color: CHART_COLORS.grid },
+            ticks: { callback: (v) => v.toFixed(4) },
           },
+          x: { grid: { display: false } },
         },
+        animation: { duration: 1200, easing: 'easeOutQuart' },
       },
     });
   }
 
-  // R² Chart
-  const r2Ctx = document.getElementById("r2Chart");
+  const r2Ctx = document.getElementById('r2Chart');
   if (r2Ctx) {
     appState.charts.r2 = new Chart(r2Ctx, {
-      type: "radar",
+      type: 'radar',
       data: {
-        labels: ["Structural", "CL", "CD"],
-        datasets: [
-          {
-            label: "R² Score",
-            data: [0.999998, 0.998, 0.991],
-            borderColor: "#667eea",
-            backgroundColor: "rgba(102, 126, 234, 0.2)",
-            pointBackgroundColor: "#667eea",
-            pointBorderColor: "#fff",
-            pointBorderWidth: 2,
-            pointRadius: 5,
-          },
-        ],
+        labels: ['Structural', 'CL', 'CD'],
+        datasets: [{
+          label: 'R² Score',
+          data: [0.999998, 0.998, 0.991],
+          borderColor: '#00d4ff',
+          backgroundColor: 'rgba(0, 212, 255, 0.15)',
+          pointBackgroundColor: '#00d4ff',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          borderWidth: 2,
+        }],
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: true,
+        ...chartOpts,
         scales: {
           r: {
             beginAtZero: true,
             max: 1.0,
-            ticks: {
-              stepSize: 0.2,
-            },
+            ticks: { stepSize: 0.2, backdropColor: 'transparent' },
+            grid: { color: CHART_COLORS.grid },
+            angleLines: { color: CHART_COLORS.grid },
+            pointLabels: { font: { size: 12 } },
           },
         },
+        animation: { duration: 1200 },
       },
     });
   }
 
-  // Aerodynamic Chart
-  const aeroCtx = document.getElementById("aeroChart");
+  const aeroCtx = document.getElementById('aeroChart');
   if (aeroCtx) {
     appState.charts.aero = new Chart(aeroCtx, {
-      type: "doughnut",
+      type: 'doughnut',
       data: {
-        labels: ["Lift (CL)", "Drag (CD)"],
-        datasets: [
-          {
-            data: [0.11483, 0.03304],
-            backgroundColor: ["#2ecc71", "#e74c3c"],
-            borderColor: "#fff",
-            borderWidth: 2,
-          },
-        ],
+        labels: ['Lift (CL)', 'Drag (CD)'],
+        datasets: [{
+          data: [0.11483, 0.03304],
+          backgroundColor: [CHART_COLORS.green, CHART_COLORS.red],
+          borderColor: 'rgba(12, 20, 36, 0.8)',
+          borderWidth: 3,
+          hoverOffset: 8,
+        }],
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: true,
+        ...chartOpts,
+        cutout: '65%',
         plugins: {
-          legend: {
-            position: "bottom",
-          },
+          legend: { position: 'bottom', labels: { usePointStyle: true } },
         },
+        animation: { animateRotate: true, duration: 1000 },
       },
     });
   }
 
-  // History Chart
-  const historyCtx = document.getElementById("historyChart");
+  const historyCtx = document.getElementById('historyChart');
   if (historyCtx) {
     appState.charts.history = new Chart(historyCtx, {
-      type: "line",
+      type: 'line',
       data: {
         labels: [],
         datasets: [
           {
-            label: "CL",
+            label: 'CL',
             data: [],
-            borderColor: "#2ecc71",
-            backgroundColor: "rgba(46, 204, 113, 0.1)",
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
             tension: 0.4,
             fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 7,
           },
           {
-            label: "CD",
+            label: 'CD',
             data: [],
-            borderColor: "#e74c3c",
-            backgroundColor: "rgba(231, 76, 60, 0.1)",
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
             tension: 0.4,
             fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 7,
           },
         ],
       },
       options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-          legend: { position: "top" },
-        },
+        ...chartOpts,
         scales: {
-          y: { beginAtZero: true },
+          y: { beginAtZero: true, grid: { color: CHART_COLORS.grid } },
+          x: { grid: { color: CHART_COLORS.grid } },
         },
+        animation: { duration: 800 },
       },
     });
   }
 }
 
-// ===== UPDATE CHARTS =====
 function updateAeroChart(cl, cd) {
   if (appState.charts.aero) {
     appState.charts.aero.data.datasets[0].data = [cl, cd];
-    appState.charts.aero.update();
+    appState.charts.aero.update('active');
   }
 }
 
 function updateHistoryChart() {
-  if (appState.charts.history && appState.predictions.length > 0) {
-    const recentPredictions = appState.predictions.slice(-10);
-
-    appState.charts.history.data.labels = recentPredictions.map(
-      (_, i) => `${i + 1}`,
-    );
-    appState.charts.history.data.datasets[0].data = recentPredictions.map(
-      (p) => p.cl,
-    );
-    appState.charts.history.data.datasets[1].data = recentPredictions.map(
-      (p) => p.cd,
-    );
-    appState.charts.history.update();
-  }
+  if (!appState.charts.history || appState.predictions.length === 0) return;
+  const recent = appState.predictions.slice(-10);
+  appState.charts.history.data.labels = recent.map((_, i) => `#${i + 1}`);
+  appState.charts.history.data.datasets[0].data = recent.map((p) => p.cl);
+  appState.charts.history.data.datasets[1].data = recent.map((p) => p.cd);
+  appState.charts.history.update('active');
 }
-
-console.log("✓ JavaScript loaded successfully");

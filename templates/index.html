@@ -3,691 +3,499 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDP ML Morphing Wing - Interactive Frontend</title>
-    
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <!-- Font Awesome -->
+    <title>IDP Morphing Wing ML — Aerospace Intelligence Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
-    <!-- Three.js for 3D visualization -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
 </head>
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-dark bg-gradient sticky-top">
-        <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">
-                <i class="fas fa-rocket"></i> IDP Morphing Wing ML Dashboard
-            </span>
-            <span class="navbar-text text-light">
-                <small>Piezoelectric Actuator Control & Aerodynamic Prediction</small>
-            </span>
-        </div>
-    </nav>
+    <canvas id="bgCanvas" aria-hidden="true"></canvas>
+    <div class="scanline" aria-hidden="true"></div>
 
-    <!-- Main Container -->
-    <div class="container-fluid">
-        <!-- Tab Navigation -->
-        <div class="row sticky-top mt-2 mb-3">
-            <div class="col-12">
-                <ul class="nav nav-tabs nav-fill shadow-sm" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" 
-                                data-bs-target="#overview" type="button" role="tab">
-                            <i class="fas fa-cube"></i> Project Overview
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="forward-tab" data-bs-toggle="tab" 
-                                data-bs-target="#forward" type="button" role="tab">
-                            <i class="fas fa-arrow-right"></i> Forward Prediction
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="inverse-tab" data-bs-toggle="tab" 
-                                data-bs-target="#inverse" type="button" role="tab">
-                            <i class="fas fa-arrow-left"></i> Inverse Control
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="results-tab" data-bs-toggle="tab" 
-                                data-bs-target="#results" type="button" role="tab">
-                            <i class="fas fa-chart-bar"></i> Model Results
-                        </button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="info-tab" data-bs-toggle="tab" 
-                                data-bs-target="#info" type="button" role="tab">
-                            <i class="fas fa-info-circle"></i> Model Info
-                        </button>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Tab Content -->
-        <div class="tab-content mt-4">
-            <!-- ===== OVERVIEW TAB ===== -->
-            <div class="tab-pane fade show active" id="overview" role="tabpanel">
-                <div class="row">
-                    <!-- Wing Visualization -->
-                    <div class="col-lg-6">
-                        <div class="card shadow-lg h-100">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-feather"></i> NACA 0009 Morphing Wing</h5>
-                            </div>
-                            <div class="card-body">
-                                <canvas id="wingCanvas" width="500" height="400" class="w-100"></canvas>
-                                <div class="mt-3">
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        Interactive wing visualization. Drag to rotate. Scroll to zoom.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Project Details -->
-                    <div class="col-lg-6">
-                        <div class="card shadow-lg mb-3">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-project-diagram"></i> System Architecture</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="architecture-flow">
-                                    <div class="flow-box">
-                                        <strong>MFC Voltages</strong><br>
-                                        <small class="text-muted">V_lower, V_upper</small>
-                                    </div>
-                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
-                                    <div class="flow-box">
-                                        <strong>Structural Surrogate</strong><br>
-                                        <small class="text-muted">Linear Regression<br>R² = 0.9999</small>
-                                    </div>
-                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
-                                    <div class="flow-box">
-                                        <strong>Wing Deflection</strong><br>
-                                        <small class="text-muted">Trailing Edge (δ_TE)</small>
-                                    </div>
-                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
-                                    <div class="flow-box">
-                                        <strong>Aerodynamic Surrogate</strong><br>
-                                        <small class="text-muted">MLP Regressor<br>CL R² = 0.998, CD R² = 0.991</small>
-                                    </div>
-                                    <div class="flow-arrow"><i class="fas fa-arrow-down"></i></div>
-                                    <div class="flow-box">
-                                        <strong>Aerodynamic Coefficients</strong><br>
-                                        <small class="text-muted">CL, CD, L/D Ratio</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card shadow-lg">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-cog"></i> Wing Design Parameters</h5>
-                            </div>
-                            <div class="card-body">
-                                <table class="table table-sm table-striped">
-                                    <tr>
-                                        <td><strong>Airfoil</strong></td>
-                                        <td>NACA 0009 (Symmetric)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Chord</strong></td>
-                                        <td>127 mm</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Morphing Region</strong></td>
-                                        <td>Trailing Edge (80% chord)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Actuators</strong></td>
-                                        <td>4 Bimorph MFC (d33 mode)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Voltage Range</strong></td>
-                                        <td>-500 to +1500 V</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Max Deflection</strong></td>
-                                        <td>-8.47 mm</td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== FORWARD PREDICTION TAB ===== -->
-            <div class="tab-pane fade" id="forward" role="tabpanel">
-                <div class="row">
-                    <!-- Input Controls -->
-                    <div class="col-lg-4">
-                        <div class="card shadow-lg sticky-top" style="top: 150px;">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Input Parameters</h5>
-                            </div>
-                            <div class="card-body">
-                                <form id="forwardForm">
-                                    <!-- Lower Voltage -->
-                                    <div class="mb-3">
-                                        <label for="lowerVoltage" class="form-label">
-                                            <strong>Lower MFC Voltage (V)</strong>
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="range" class="form-range" id="lowerVoltageSlider" 
-                                                   min="-500" max="-50" value="-250" step="10">
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-6">
-                                                <input type="number" class="form-control form-control-sm" 
-                                                       id="lowerVoltage" value="-250" min="-500" max="-50" step="10">
-                                            </div>
-                                            <div class="col-6 text-muted small">
-                                                Range: -500 to -50 V
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Upper Voltage -->
-                                    <div class="mb-3">
-                                        <label for="upperVoltage" class="form-label">
-                                            <strong>Upper MFC Voltage (V)</strong>
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="range" class="form-range" id="upperVoltageSlider" 
-                                                   min="50" max="1500" value="750" step="10">
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-6">
-                                                <input type="number" class="form-control form-control-sm" 
-                                                       id="upperVoltage" value="750" min="50" max="1500" step="10">
-                                            </div>
-                                            <div class="col-6 text-muted small">
-                                                Range: 50 to 1500 V
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Pitch Angle -->
-                                    <div class="mb-3">
-                                        <label for="pitchAngle" class="form-label">
-                                            <strong>Pitch Angle (°)</strong>
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="range" class="form-range" id="pitchAngleSlider" 
-                                                   min="-4" max="20" value="8" step="1">
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-6">
-                                                <input type="number" class="form-control form-control-sm" 
-                                                       id="pitchAngle" value="8" min="-4" max="20" step="1">
-                                            </div>
-                                            <div class="col-6 text-muted small">
-                                                Range: -4° to 20°
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Submit Button -->
-                                    <button type="submit" class="btn btn-primary w-100 mt-4">
-                                        <i class="fas fa-play"></i> Predict Aerodynamics
-                                    </button>
-                                </form>
-
-                                <div id="forwardErrors" class="alert alert-danger mt-3" style="display: none;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Results Display -->
-                    <div class="col-lg-8">
-                        <div class="row">
-                            <!-- Results Cards -->
-                            <div class="col-md-6 mb-3">
-                                <div class="card shadow-lg border-left-primary h-100">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h6 class="mb-0"><i class="fas fa-ruler"></i> Wing Deflection</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="display-value" id="deflectionResult">
-                                            <div class="value">-3.7164</div>
-                                            <div class="unit">mm</div>
-                                        </div>
-                                        <small class="text-muted">Trailing edge deflection</small>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <div class="card shadow-lg border-left-success h-100">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h6 class="mb-0"><i class="fas fa-arrow-up"></i> Lift Coefficient (CL)</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="display-value" id="clResult">
-                                            <div class="value">0.11483</div>
-                                            <div class="unit">—</div>
-                                        </div>
-                                        <small class="text-muted">Aerodynamic lift</small>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <div class="card shadow-lg border-left-warning h-100">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h6 class="mb-0"><i class="fas fa-minus"></i> Drag Coefficient (CD)</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="display-value" id="cdResult">
-                                            <div class="value">0.03304</div>
-                                            <div class="unit">—</div>
-                                        </div>
-                                        <small class="text-muted">Aerodynamic drag</small>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <div class="card shadow-lg border-left-info h-100">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h6 class="mb-0"><i class="fas fa-chart-line"></i> Lift-to-Drag Ratio (L/D)</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="display-value" id="ldResult">
-                                            <div class="value">3.47</div>
-                                            <div class="unit">—</div>
-                                        </div>
-                                        <small class="text-muted">Efficiency metric</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Charts -->
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <div class="card shadow-lg">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h6 class="mb-0"><i class="fas fa-chart-pie"></i> Aerodynamic Coefficients</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="aeroChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6 mb-3">
-                                <div class="card shadow-lg">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h6 class="mb-0"><i class="fas fa-history"></i> Prediction History</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="historyChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== INVERSE CONTROL TAB ===== -->
-            <div class="tab-pane fade" id="inverse" role="tabpanel">
-                <div class="row">
-                    <!-- Input Controls -->
-                    <div class="col-lg-4">
-                        <div class="card shadow-lg sticky-top" style="top: 150px;">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-bullseye"></i> Control Objectives</h5>
-                            </div>
-                            <div class="card-body">
-                                <form id="inverseForm">
-                                    <!-- Target CL -->
-                                    <div class="mb-3">
-                                        <label for="targetCL" class="form-label">
-                                            <strong>Target Lift Coefficient (CL)</strong>
-                                        </label>
-                                        <input type="number" class="form-control" id="targetCL" 
-                                               value="0.15" min="0" max="0.35" step="0.01">
-                                        <small class="text-muted d-block mt-2">
-                                            Max achievable CL depends on pitch angle
-                                        </small>
-                                    </div>
-
-                                    <!-- Pitch Angle -->
-                                    <div class="mb-3">
-                                        <label for="inversePitchAngle" class="form-label">
-                                            <strong>Pitch Angle (°)</strong>
-                                        </label>
-                                        <div class="input-group">
-                                            <input type="range" class="form-range" id="inversePitchSlider" 
-                                                   min="-4" max="20" value="8" step="1">
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-6">
-                                                <input type="number" class="form-control form-control-sm" 
-                                                       id="inversePitchAngle" value="8" min="-4" max="20" step="1">
-                                            </div>
-                                            <div class="col-6 text-muted small">
-                                                Range: -4° to 20°
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Max CD (Optional) -->
-                                    <div class="mb-3">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" id="useMaxCD" 
-                                                   value="1" onchange="toggleMaxCD()">
-                                            <label class="form-check-label" for="useMaxCD">
-                                                <strong>Apply Drag Constraint</strong>
-                                            </label>
-                                        </div>
-                                        <input type="number" class="form-control mt-2" id="maxCD" 
-                                               value="0.05" min="0" max="0.16" step="0.01" 
-                                               disabled placeholder="Max CD (optional)">
-                                        <small class="text-muted d-block mt-2">
-                                            Optional: Restrict drag coefficient
-                                        </small>
-                                    </div>
-
-                                    <!-- Submit Button -->
-                                    <button type="submit" class="btn btn-success w-100 mt-4">
-                                        <i class="fas fa-search"></i> Find Voltages
-                                    </button>
-                                </form>
-
-                                <div id="inverseErrors" class="alert alert-danger mt-3" style="display: none;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recommendations Display -->
-                    <div class="col-lg-8">
-                        <div class="card shadow-lg mb-3">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-lightbulb"></i> Voltage Recommendations</h5>
-                            </div>
-                            <div class="card-body">
-                                <div id="recommendationsContainer">
-                                    <p class="text-muted text-center">Enter parameters and click "Find Voltages" to see recommendations</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card shadow-lg">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-table"></i> Detailed Results</h5>
-                            </div>
-                            <div class="card-body">
-                                <div id="recommendationsTable" style="overflow-x: auto;"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== MODEL RESULTS TAB ===== -->
-            <div class="tab-pane fade" id="results" role="tabpanel">
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card shadow-lg mb-4">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-check-circle"></i> Model Performance Summary</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4 mb-3">
-                                        <div class="metric-card">
-                                            <h6>Structural Surrogate</h6>
-                                            <p class="metric-value">R² = 0.999998</p>
-                                            <p class="metric-label">MAE: 0.00164 mm | RMSE: 0.00294 mm</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <div class="metric-card">
-                                            <h6>Aerodynamic CL</h6>
-                                            <p class="metric-value">R² = 0.998</p>
-                                            <p class="metric-label">MAE: 0.0022 | Test Samples: 40</p>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <div class="metric-card">
-                                            <h6>Aerodynamic CD</h6>
-                                            <p class="metric-value">R² = 0.991</p>
-                                            <p class="metric-label">MAE: 0.0021 | Training: Augmented</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-lg-6">
-                                <div class="card shadow-lg mb-4">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Accuracy Metrics</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="accuracyChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="col-lg-6">
-                                <div class="card shadow-lg mb-4">
-                                    <div class="card-header bg-gradient text-white">
-                                        <h5 class="mb-0"><i class="fas fa-object-group"></i> R² Scores</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <canvas id="r2Chart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card shadow-lg">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-database"></i> Data Augmentation Results</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row text-center">
-                                    <div class="col-md-3">
-                                        <h6>Original CFD Data</h6>
-                                        <p class="h4">201</p>
-                                        <small class="text-muted">data points</small>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <h6>Synthetic Data Generated</h6>
-                                        <p class="h4">7,797</p>
-                                        <small class="text-muted">interpolated rows</small>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <h6>Augmented Training Set</h6>
-                                        <p class="h4">7,998</p>
-                                        <small class="text-muted">total rows</small>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <h6>CD Improvement</h6>
-                                        <p class="h4">20×</p>
-                                        <small class="text-muted">R² increase</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ===== MODEL INFO TAB ===== -->
-            <div class="tab-pane fade" id="info" role="tabpanel">
-                <div class="row">
-                    <div class="col-lg-6">
-                        <div class="card shadow-lg mb-4">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-code-branch"></i> Structural Surrogate</h5>
-                            </div>
-                            <div class="card-body">
-                                <table class="table table-sm">
-                                    <tr>
-                                        <td><strong>Model Type</strong></td>
-                                        <td>Linear Regression</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Inputs</strong></td>
-                                        <td>lower_mfc_v, upper_mfc_v</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Output</strong></td>
-                                        <td>deflection_mm</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Preprocessing</strong></td>
-                                        <td>StandardScaler</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Training Samples</strong></td>
-                                        <td>240 (80% of 300)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Test Samples</strong></td>
-                                        <td>60 (20% of 300)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Validation</strong></td>
-                                        <td>5-fold CV</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Performance</strong></td>
-                                        <td>R² = 0.999998</td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-lg-6">
-                        <div class="card shadow-lg mb-4">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-network-wired"></i> Aerodynamic Surrogate</h5>
-                            </div>
-                            <div class="card-body">
-                                <table class="table table-sm">
-                                    <tr>
-                                        <td><strong>Model Type</strong></td>
-                                        <td>MLP Regressor (MultiOutput)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Inputs</strong></td>
-                                        <td>deflection_mm, pitch_deg</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Outputs</strong></td>
-                                        <td>cl, cd</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Hidden Layers</strong></td>
-                                        <td>[64, 32] neurons</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Activation</strong></td>
-                                        <td>ReLU</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Optimizer</strong></td>
-                                        <td>Adam (lr=0.003)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Training Samples</strong></td>
-                                        <td>8,000 (augmented)</td>
-                                    </tr>
-                                    <tr>
-                                        <td><strong>Test Samples</strong></td>
-                                        <td>40 (real CFD)</td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12">
-                        <div class="card shadow-lg">
-                            <div class="card-header bg-gradient text-white">
-                                <h5 class="mb-0"><i class="fas fa-book"></i> Technical Documentation</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <h6><i class="fas fa-file-pdf"></i> Reports</h6>
-                                        <ul class="list-unstyled">
-                                            <li><a href="#" class="text-decoration-none">
-                                                <i class="fas fa-download"></i> Technical Report
-                                            </a></li>
-                                            <li><a href="#" class="text-decoration-none">
-                                                <i class="fas fa-download"></i> Results Summary
-                                            </a></li>
-                                            <li><a href="#" class="text-decoration-none">
-                                                <i class="fas fa-download"></i> Figure Guide
-                                            </a></li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <h6><i class="fas fa-code"></i> Code Repository</h6>
-                                        <ul class="list-unstyled">
-                                            <li>train_structural_surrogates.py</li>
-                                            <li>train_augmented_surrogates.py</li>
-                                            <li>predict_cl_cd.py</li>
-                                            <li>recommend_voltages.py</li>
-                                        </ul>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <h6><i class="fas fa-database"></i> Data Files</h6>
-                                        <ul class="list-unstyled">
-                                            <li>Structure samples.xlsx (300 rows)</li>
-                                            <li>C_L C_D Values.csv (201 rows)</li>
-                                            <li>Synthetic datasets (7,797 rows)</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <!-- Loading Screen -->
+    <div id="loader" class="loader">
+        <div class="loader-inner">
+            <div class="loader-ring"></div>
+            <div class="loader-ring loader-ring--2"></div>
+            <p class="loader-text">Initializing Surrogate Models</p>
+            <div class="loader-bar"><div class="loader-bar-fill"></div></div>
         </div>
     </div>
 
-    <!-- Footer -->
-    <footer class="bg-dark text-light mt-5 py-4">
-        <div class="container text-center">
-            <p class="mb-1">
-                <small>
-                    IDP Phase 2 — Machine Learning Component | 
-                    RV College of Engineering | 
-                    <span id="currentYear"></span>
-                </small>
-            </p>
-            <p class="text-muted">
-                <small>
-                    Piezoelectric Morphing Wing Surrogate Framework | 
-                    Interactive Prediction Dashboard
-                </small>
-            </p>
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
+
+    <!-- Navigation -->
+    <header class="header">
+        <div class="header-brand">
+            <div class="brand-icon"><i class="fas fa-feather-alt"></i></div>
+            <div>
+                <h1 class="brand-title">Morphing Wing ML</h1>
+                <p class="brand-sub">Piezoelectric Actuator Control &amp; Aerodynamic Prediction</p>
+            </div>
         </div>
+        <div class="header-status">
+            <span class="status-dot"></span>
+            <span>Surrogates Online</span>
+        </div>
+    </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" role="tablist">
+        <button class="tab-btn active" id="overview-tab" data-tab="overview" role="tab" aria-selected="true">
+            <i class="fas fa-cube"></i><span>Overview</span>
+        </button>
+        <button class="tab-btn" id="forward-tab" data-tab="forward" role="tab">
+            <i class="fas fa-arrow-right"></i><span>Forward</span>
+        </button>
+        <button class="tab-btn" id="inverse-tab" data-tab="inverse" role="tab">
+            <i class="fas fa-arrow-left"></i><span>Inverse</span>
+        </button>
+        <button class="tab-btn" id="results-tab" data-tab="results" role="tab">
+            <i class="fas fa-chart-bar"></i><span>Results</span>
+        </button>
+        <button class="tab-btn" id="info-tab" data-tab="info" role="tab">
+            <i class="fas fa-info-circle"></i><span>Model Info</span>
+        </button>
+    </nav>
+
+    <main class="main-content">
+
+        <!-- ===== OVERVIEW ===== -->
+        <section class="tab-panel active" id="overview" role="tabpanel">
+            <div class="grid grid-2">
+                <div class="glass-card reveal" data-delay="0">
+                    <div class="card-header">
+                        <i class="fas fa-feather"></i>
+                        <h2>NACA 0009 Morphing Wing</h2>
+                    </div>
+                    <div class="card-body">
+                        <div id="wingCanvasContainer" class="canvas-3d">
+                            <canvas id="wingCanvas"></canvas>
+                            <div class="canvas-overlay">
+                                <span class="canvas-hint"><i class="fas fa-hand-pointer"></i> Drag to rotate · Scroll to zoom</span>
+                            </div>
+                        </div>
+                        <div class="deflection-badge" id="deflectionBadge">
+                            <span class="deflection-label">Trailing Edge Deflection</span>
+                            <span class="deflection-value" id="overviewDeflection">— mm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stack">
+                    <div class="glass-card reveal" data-delay="100">
+                        <div class="card-header">
+                            <i class="fas fa-project-diagram"></i>
+                            <h2>System Architecture</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="pipeline">
+                                <div class="pipeline-node" data-step="1">
+                                    <div class="node-icon"><i class="fas fa-bolt"></i></div>
+                                    <strong>MFC Voltages</strong>
+                                    <small>V_lower, V_upper</small>
+                                </div>
+                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                                <div class="pipeline-node" data-step="2">
+                                    <div class="node-icon"><i class="fas fa-chart-line"></i></div>
+                                    <strong>Structural Surrogate</strong>
+                                    <small>Linear Regression · R² = 0.9999</small>
+                                </div>
+                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                                <div class="pipeline-node" data-step="3">
+                                    <div class="node-icon"><i class="fas fa-ruler-vertical"></i></div>
+                                    <strong>Wing Deflection</strong>
+                                    <small>Trailing Edge (δ_TE)</small>
+                                </div>
+                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                                <div class="pipeline-node" data-step="4">
+                                    <div class="node-icon"><i class="fas fa-brain"></i></div>
+                                    <strong>Aerodynamic Surrogate</strong>
+                                    <small>MLP Regressor · CL R² = 0.998</small>
+                                </div>
+                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                                <div class="pipeline-node" data-step="5">
+                                    <div class="node-icon"><i class="fas fa-wind"></i></div>
+                                    <strong>Aerodynamic Coefficients</strong>
+                                    <small>CL, CD, L/D Ratio</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card reveal" data-delay="200">
+                        <div class="card-header">
+                            <i class="fas fa-cog"></i>
+                            <h2>Wing Design Parameters</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="spec-grid">
+                                <div class="spec-item"><span class="spec-key">Airfoil</span><span class="spec-val">NACA 0009 (Symmetric)</span></div>
+                                <div class="spec-item"><span class="spec-key">Chord</span><span class="spec-val">127 mm</span></div>
+                                <div class="spec-item"><span class="spec-key">Morphing Region</span><span class="spec-val">Trailing Edge (80% chord)</span></div>
+                                <div class="spec-item"><span class="spec-key">Actuators</span><span class="spec-val">4 Bimorph MFC (d33 mode)</span></div>
+                                <div class="spec-item"><span class="spec-key">Voltage Range</span><span class="spec-val">−500 to +1500 V</span></div>
+                                <div class="spec-item"><span class="spec-key">Max Deflection</span><span class="spec-val">−8.47 mm</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== FORWARD PREDICTION ===== -->
+        <section class="tab-panel" id="forward" role="tabpanel">
+            <div class="grid grid-asymmetric">
+                <div class="glass-card sticky-panel reveal">
+                    <div class="card-header">
+                        <i class="fas fa-sliders-h"></i>
+                        <h2>Input Parameters</h2>
+                    </div>
+                    <div class="card-body">
+                        <form id="forwardForm">
+                            <div class="control-group">
+                                <label for="lowerVoltage">Lower MFC Voltage (V)</label>
+                                <div class="slider-wrap">
+                                    <input type="range" class="range-input" id="lowerVoltageSlider" min="-500" max="-50" value="-250" step="10">
+                                    <div class="range-track-fill" id="lowerVoltageFill"></div>
+                                </div>
+                                <div class="input-row">
+                                    <input type="number" class="num-input" id="lowerVoltage" value="-250" min="-500" max="-50" step="10">
+                                    <span class="input-hint">−500 to −50 V</span>
+                                </div>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="upperVoltage">Upper MFC Voltage (V)</label>
+                                <div class="slider-wrap">
+                                    <input type="range" class="range-input" id="upperVoltageSlider" min="50" max="1500" value="750" step="10">
+                                    <div class="range-track-fill" id="upperVoltageFill"></div>
+                                </div>
+                                <div class="input-row">
+                                    <input type="number" class="num-input" id="upperVoltage" value="750" min="50" max="1500" step="10">
+                                    <span class="input-hint">50 to 1500 V</span>
+                                </div>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="pitchAngle">Pitch Angle (°)</label>
+                                <div class="slider-wrap">
+                                    <input type="range" class="range-input" id="pitchAngleSlider" min="-4" max="20" value="8" step="1">
+                                    <div class="range-track-fill" id="pitchAngleFill"></div>
+                                </div>
+                                <div class="input-row">
+                                    <input type="number" class="num-input" id="pitchAngle" value="8" min="-4" max="20" step="1">
+                                    <span class="input-hint">−4° to 20°</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary" id="forwardSubmit">
+                                <span class="btn-text"><i class="fas fa-play"></i> Predict Aerodynamics</span>
+                                <span class="btn-loader"><i class="fas fa-circle-notch fa-spin"></i></span>
+                            </button>
+                        </form>
+                        <div id="forwardErrors" class="alert alert-danger" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <div class="stack">
+                    <div class="metric-grid reveal">
+                        <div class="metric-card metric-deflection">
+                            <div class="metric-icon"><i class="fas fa-ruler"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Wing Deflection</span>
+                                <div class="display-value" id="deflectionResult">
+                                    <span class="value" data-value="-3.7164">-3.7164</span>
+                                    <span class="unit">mm</span>
+                                </div>
+                                <small>Trailing edge deflection</small>
+                            </div>
+                        </div>
+                        <div class="metric-card metric-cl">
+                            <div class="metric-icon"><i class="fas fa-arrow-up"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Lift Coefficient (CL)</span>
+                                <div class="display-value" id="clResult">
+                                    <span class="value" data-value="0.11483">0.11483</span>
+                                    <span class="unit">—</span>
+                                </div>
+                                <small>Aerodynamic lift</small>
+                            </div>
+                        </div>
+                        <div class="metric-card metric-cd">
+                            <div class="metric-icon"><i class="fas fa-minus"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Drag Coefficient (CD)</span>
+                                <div class="display-value" id="cdResult">
+                                    <span class="value" data-value="0.03304">0.03304</span>
+                                    <span class="unit">—</span>
+                                </div>
+                                <small>Aerodynamic drag</small>
+                            </div>
+                        </div>
+                        <div class="metric-card metric-ld">
+                            <div class="metric-icon"><i class="fas fa-chart-line"></i></div>
+                            <div class="metric-info">
+                                <span class="metric-label">Lift-to-Drag (L/D)</span>
+                                <div class="display-value" id="ldResult">
+                                    <span class="value" data-value="3.47">3.47</span>
+                                    <span class="unit">—</span>
+                                </div>
+                                <small>Efficiency metric</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-2 reveal">
+                        <div class="glass-card chart-card">
+                            <div class="card-header"><i class="fas fa-chart-pie"></i><h2>Aerodynamic Coefficients</h2></div>
+                            <div class="card-body chart-body"><canvas id="aeroChart"></canvas></div>
+                        </div>
+                        <div class="glass-card chart-card">
+                            <div class="card-header"><i class="fas fa-history"></i><h2>Prediction History</h2></div>
+                            <div class="card-body chart-body"><canvas id="historyChart"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card reveal">
+                        <div class="card-header">
+                            <i class="fas fa-mountain"></i>
+                            <h2>3D Response Surface — CL vs Voltages</h2>
+                            <button class="btn-icon" id="refreshSurface" title="Refresh surface"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                        <div class="card-body">
+                            <div id="surfaceCanvasContainer" class="canvas-3d canvas-3d--wide">
+                                <canvas id="surfaceCanvas"></canvas>
+                            </div>
+                            <p class="canvas-caption">Interactive CL response surface at current pitch angle · Drag to rotate</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== INVERSE CONTROL ===== -->
+        <section class="tab-panel" id="inverse" role="tabpanel">
+            <div class="grid grid-asymmetric">
+                <div class="glass-card sticky-panel reveal">
+                    <div class="card-header"><i class="fas fa-bullseye"></i><h2>Control Objectives</h2></div>
+                    <div class="card-body">
+                        <form id="inverseForm">
+                            <div class="control-group">
+                                <label for="targetCL">Target Lift Coefficient (CL)</label>
+                                <input type="number" class="num-input full" id="targetCL" value="0.15" min="0" max="0.35" step="0.01">
+                                <span class="input-hint">Max achievable CL depends on pitch angle</span>
+                            </div>
+
+                            <div class="control-group">
+                                <label for="inversePitchAngle">Pitch Angle (°)</label>
+                                <div class="slider-wrap">
+                                    <input type="range" class="range-input" id="inversePitchSlider" min="-4" max="20" value="8" step="1">
+                                    <div class="range-track-fill" id="inversePitchFill"></div>
+                                </div>
+                                <div class="input-row">
+                                    <input type="number" class="num-input" id="inversePitchAngle" value="8" min="-4" max="20" step="1">
+                                    <span class="input-hint">−4° to 20°</span>
+                                </div>
+                            </div>
+
+                            <div class="control-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="useMaxCD" onchange="toggleMaxCD()">
+                                    <span class="checkmark"></span>
+                                    Apply Drag Constraint
+                                </label>
+                                <input type="number" class="num-input full" id="maxCD" value="0.05" min="0" max="0.16" step="0.01" disabled placeholder="Max CD (optional)">
+                                <span class="input-hint">Optional: restrict drag coefficient</span>
+                            </div>
+
+                            <button type="submit" class="btn btn-success" id="inverseSubmit">
+                                <span class="btn-text"><i class="fas fa-search"></i> Find Voltages</span>
+                                <span class="btn-loader"><i class="fas fa-circle-notch fa-spin"></i></span>
+                            </button>
+                        </form>
+                        <div id="inverseErrors" class="alert alert-danger" style="display:none;"></div>
+                    </div>
+                </div>
+
+                <div class="stack">
+                    <div class="glass-card reveal">
+                        <div class="card-header"><i class="fas fa-lightbulb"></i><h2>Voltage Recommendations</h2></div>
+                        <div class="card-body">
+                            <div id="recommendationsContainer">
+                                <div class="empty-state">
+                                    <i class="fas fa-crosshairs"></i>
+                                    <p>Enter parameters and click "Find Voltages" to see recommendations</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card reveal">
+                        <div class="card-header"><i class="fas fa-table"></i><h2>Detailed Results</h2></div>
+                        <div class="card-body table-wrap">
+                            <div id="recommendationsTable"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== MODEL RESULTS ===== -->
+        <section class="tab-panel" id="results" role="tabpanel">
+            <div class="glass-card reveal mb-4">
+                <div class="card-header"><i class="fas fa-check-circle"></i><h2>Model Performance Summary</h2></div>
+                <div class="card-body">
+                    <div class="perf-grid">
+                        <div class="perf-card">
+                            <div class="perf-glow"></div>
+                            <h3>Structural Surrogate</h3>
+                            <p class="perf-score">R² = 0.999998</p>
+                            <p class="perf-detail">MAE: 0.00164 mm · RMSE: 0.00294 mm</p>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-glow"></div>
+                            <h3>Aerodynamic CL</h3>
+                            <p class="perf-score">R² = 0.998</p>
+                            <p class="perf-detail">MAE: 0.0022 · Test Samples: 40</p>
+                        </div>
+                        <div class="perf-card">
+                            <div class="perf-glow"></div>
+                            <h3>Aerodynamic CD</h3>
+                            <p class="perf-score">R² = 0.991</p>
+                            <p class="perf-detail">MAE: 0.0021 · Training: Augmented</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-2 reveal">
+                <div class="glass-card chart-card">
+                    <div class="card-header"><i class="fas fa-chart-bar"></i><h2>Accuracy Metrics (MAE)</h2></div>
+                    <div class="card-body chart-body"><canvas id="accuracyChart"></canvas></div>
+                </div>
+                <div class="glass-card chart-card">
+                    <div class="card-header"><i class="fas fa-object-group"></i><h2>R² Scores</h2></div>
+                    <div class="card-body chart-body"><canvas id="r2Chart"></canvas></div>
+                </div>
+            </div>
+
+            <div class="glass-card reveal mt-4">
+                <div class="card-header"><i class="fas fa-database"></i><h2>Data Augmentation Results</h2></div>
+                <div class="card-body">
+                    <div class="augment-grid">
+                        <div class="augment-stat">
+                            <div class="augment-ring"><span class="augment-num" data-count="201">0</span></div>
+                            <h4>Original CFD Data</h4>
+                            <small>data points</small>
+                        </div>
+                        <div class="augment-stat">
+                            <div class="augment-ring"><span class="augment-num" data-count="7797">0</span></div>
+                            <h4>Synthetic Generated</h4>
+                            <small>interpolated rows</small>
+                        </div>
+                        <div class="augment-stat">
+                            <div class="augment-ring"><span class="augment-num" data-count="7998">0</span></div>
+                            <h4>Augmented Training Set</h4>
+                            <small>total rows</small>
+                        </div>
+                        <div class="augment-stat augment-highlight">
+                            <div class="augment-ring"><span class="augment-num">20×</span></div>
+                            <h4>CD Improvement</h4>
+                            <small>R² increase</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ===== MODEL INFO ===== -->
+        <section class="tab-panel" id="info" role="tabpanel">
+            <div class="grid grid-2">
+                <div class="glass-card reveal">
+                    <div class="card-header"><i class="fas fa-code-branch"></i><h2>Structural Surrogate</h2></div>
+                    <div class="card-body">
+                        <div class="info-table">
+                            <div class="info-row"><span>Model Type</span><span>Linear Regression</span></div>
+                            <div class="info-row"><span>Inputs</span><span>lower_mfc_v, upper_mfc_v</span></div>
+                            <div class="info-row"><span>Output</span><span>deflection_mm</span></div>
+                            <div class="info-row"><span>Preprocessing</span><span>StandardScaler</span></div>
+                            <div class="info-row"><span>Training Samples</span><span>240 (80% of 300)</span></div>
+                            <div class="info-row"><span>Test Samples</span><span>60 (20% of 300)</span></div>
+                            <div class="info-row"><span>Validation</span><span>5-fold CV</span></div>
+                            <div class="info-row"><span>Performance</span><span class="highlight">R² = 0.999998</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card reveal">
+                    <div class="card-header"><i class="fas fa-network-wired"></i><h2>Aerodynamic Surrogate</h2></div>
+                    <div class="card-body">
+                        <div class="info-table">
+                            <div class="info-row"><span>Model Type</span><span>MLP Regressor (MultiOutput)</span></div>
+                            <div class="info-row"><span>Inputs</span><span>deflection_mm, pitch_deg</span></div>
+                            <div class="info-row"><span>Outputs</span><span>cl, cd</span></div>
+                            <div class="info-row"><span>Hidden Layers</span><span>[64, 32] neurons</span></div>
+                            <div class="info-row"><span>Activation</span><span>ReLU</span></div>
+                            <div class="info-row"><span>Optimizer</span><span>Adam (lr=0.003)</span></div>
+                            <div class="info-row"><span>Training Samples</span><span>8,000 (augmented)</span></div>
+                            <div class="info-row"><span>Test Samples</span><span>40 (real CFD)</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card reveal mt-4">
+                <div class="card-header"><i class="fas fa-book"></i><h2>Technical Documentation</h2></div>
+                <div class="card-body">
+                    <div class="docs-grid">
+                        <div class="docs-col">
+                            <h3><i class="fas fa-file-pdf"></i> Reports</h3>
+                            <ul>
+                                <li><a href="#"><i class="fas fa-download"></i> Technical Report</a></li>
+                                <li><a href="#"><i class="fas fa-download"></i> Results Summary</a></li>
+                                <li><a href="#"><i class="fas fa-download"></i> Figure Guide</a></li>
+                            </ul>
+                        </div>
+                        <div class="docs-col">
+                            <h3><i class="fas fa-code"></i> Code Repository</h3>
+                            <ul>
+                                <li>train_structural_surrogates.py</li>
+                                <li>train_augmented_surrogates.py</li>
+                                <li>predict_cl_cd.py</li>
+                                <li>recommend_voltages.py</li>
+                            </ul>
+                        </div>
+                        <div class="docs-col">
+                            <h3><i class="fas fa-database"></i> Data Files</h3>
+                            <ul>
+                                <li>Structure samples.xlsx (300 rows)</li>
+                                <li>C_L C_D Values.csv (201 rows)</li>
+                                <li>Synthetic datasets (7,797 rows)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>IDP Phase 2 — Machine Learning Component · RV College of Engineering · <span id="currentYear"></span></p>
+        <p class="footer-sub">Piezoelectric Morphing Wing Surrogate Framework · Interactive Prediction Dashboard</p>
     </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
