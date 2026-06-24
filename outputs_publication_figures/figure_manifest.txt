@@ -1,0 +1,13 @@
+Publication figures (PNG + PDF)
+========================================
+fig01_pipeline_schematic.png
+fig02_structural_validation.png
+fig03_deflection_response.png
+fig04a_aerodynamic_linear.png
+fig04b_aerodynamic_mlp.png
+fig05_chain_comparison.png
+fig06_model_metrics.png
+fig07_cl_vs_pitch.png
+fig08_error_vs_pitch.png
+fig09_inverse_control.png
+fig10_data_coverage.png

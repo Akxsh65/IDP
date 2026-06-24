@@ -1,0 +1,50 @@
+[
+  {
+    "task": "structural",
+    "model": "linear_regression",
+    "mae": 0.0016437798582957588,
+    "rmse": 0.0029434007556327314,
+    "r2": 0.9999980384085271,
+    "augmentation": "strict"
+  },
+  {
+    "task": "structural",
+    "model": "mlp_regressor",
+    "mae": 0.04970949084554566,
+    "rmse": 0.06382554079663857,
+    "r2": 0.9990776435747417,
+    "augmentation": "strict"
+  },
+  {
+    "task": "aerodynamic_cl",
+    "model": "linear_regression",
+    "mae": 0.0052894164526565155,
+    "rmse": 0.007226569655702947,
+    "r2": 0.9911056201761245,
+    "augmentation": "strict"
+  },
+  {
+    "task": "aerodynamic_cd",
+    "model": "linear_regression",
+    "mae": 0.009517331161395186,
+    "rmse": 0.011940340022097921,
+    "r2": 0.860249578706259,
+    "augmentation": "strict"
+  },
+  {
+    "task": "aerodynamic_cl",
+    "model": "mlp_regressor",
+    "mae": 0.002221476680510713,
+    "rmse": 0.0034259722788160417,
+    "r2": 0.9980009715527772,
+    "augmentation": "strict"
+  },
+  {
+    "task": "aerodynamic_cd",
+    "model": "mlp_regressor",
+    "mae": 0.002093687589476363,
+    "rmse": 0.0030081036928879526,
+    "r2": 0.9911303732788539,
+    "augmentation": "strict"
+  }
+]
