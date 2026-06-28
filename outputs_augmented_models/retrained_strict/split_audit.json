@@ -1,0 +1,26 @@
+{
+  "random_state": 42,
+  "test_size": 0.2,
+  "cv_folds": 5,
+  "leakage_fixes": [
+    "Real data split before synthetic generation.",
+    "Interpolators fit only on training real rows.",
+    "Test set is held-out real rows never seen during augmentation or training.",
+    "Synthetic rows matching held-out voltage or (deflection, pitch) keys are removed.",
+    "Hyperparameter tuning uses CV on augmented training data only."
+  ],
+  "structural": {
+    "n_real_total": 300,
+    "n_train_real": 240,
+    "n_test_real": 60,
+    "n_train_augmented": 587,
+    "n_train_synthetic": 3111
+  },
+  "aerodynamic": {
+    "n_real_total": 201,
+    "n_train_real": 160,
+    "n_test_real": 41,
+    "n_train_augmented": 3254,
+    "n_train_synthetic": 3111
+  }
+}

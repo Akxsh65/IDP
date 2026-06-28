@@ -6,10 +6,10 @@ This is an **interactive web-based dashboard** for the IDP Phase 2 ML component 
 
 ### Key Features
 
-✅ **Forward Prediction**: Input voltages + pitch → Predict aerodynamic coefficients (CL, CD)
+✅ **Forward Prediction**: Input voltages + angle of attack → Predict aerodynamic coefficients (CL, CD)
 ✅ **Inverse Control**: Target aerodynamic performance → Find optimal voltages
 ✅ **Live Visualization**: 3D wing morphing, real-time charts, performance metrics
-✅ **Constraint Validation**: Enforces physical limits based on pitch angle
+✅ **Constraint Validation**: Enforces physical limits based on angle of attack
 ✅ **Responsive Design**: Mobile-friendly, aerospace-themed UI
 ✅ **Technical Documentation**: Integrated model info and performance summaries
 
@@ -106,7 +106,7 @@ IDP/
 
 - Lower MFC Voltage slider: -500 to -50 V (synchronized input)
 - Upper MFC Voltage slider: +50 to +1500 V (synchronized input)
-- Pitch Angle slider: -4° to +20° (synchronized input)
+- Angle of Attack slider: -4° to +20° (synchronized input)
 - Real-time validation errors
 
 **Right Panel (Results):**
@@ -120,9 +120,9 @@ IDP/
 **Left Panel (Optimization Settings):**
 
 - Target CL input with validation
-- Pitch angle selector
+- Angle of attack selector
 - Optional drag constraint (CD max)
-- Automatic CL_max validation based on pitch
+- Automatic CL_max validation based on angle of attack
 
 **Right Panel (Results):**
 
@@ -158,7 +158,7 @@ Content-Type: application/json
 {
     "lower_voltage": -250,
     "upper_voltage": 750,
-    "pitch_angle": 8
+    "pitch_angle": 8  // angle of attack in degrees (legacy field name)
 }
 
 Response:
@@ -171,7 +171,7 @@ Response:
         "l_d_ratio": 3.47,
         "lower_voltage": -250,
         "upper_voltage": 750,
-        "pitch_angle": 8
+        "pitch_angle": 8  // angle of attack in degrees (legacy field name)
     }
 }
 ```
@@ -184,7 +184,7 @@ Content-Type: application/json
 
 {
     "target_cl": 0.15,
-    "pitch_angle": 8,
+    "pitch_angle": 8  // angle of attack in degrees (legacy field name),
     "max_cd": 0.05
 }
 
@@ -251,13 +251,13 @@ Response: Architecture details, performance metrics, training data
 - Lower MFC: -500 V to -50 V
 - Upper MFC: +50 V to +1500 V
 
-**Pitch Angle** (Operating Range):
+**Angle of Attack** (Operating Range):
 
 - Range: -4° to +20°
 - Resolution: 1° steps
 
 **Maximum Achievable CL** (Aerodynamic Constraint):
-| Pitch (°) | CL_max |
+| Angle of attack (°) | CL_max |
 |-----------|---------|
 | -4 | 0.10992 |
 | 0 | 0.12991 |
@@ -279,10 +279,10 @@ Response: Architecture details, performance metrics, training data
 - **RMSE**: 0.00294 mm
 - **Training Samples**: 240 (5-fold CV)
 
-### Aerodynamic Surrogate (Deflection + Pitch → CL, CD)
+### Aerodynamic Surrogate (Deflection + Angle of Attack → CL, CD)
 
 - **Type**: Multi-Output MLP Regressor
-- **Architecture**: [64, 32] neurons with ReLU
+- **Architecture**: [128, 64] neurons with ReLU
 - **CL R²**: 0.998 | **CL MAE**: 0.0022
 - **CD R²**: 0.991 | **CD MAE**: 0.0021
 - **Training Samples**: 8,000 (augmented from 201 CFD points)
@@ -349,7 +349,7 @@ python app.py
 
 ### ⚡ Real-Time Interactions
 
-- **Slider ↔ Input Sync**: Dual-mode control for voltage and pitch
+- **Slider ↔ Input Sync**: Dual-mode control for voltage and angle of attack
 - **Instant Validation**: Red error boxes for constraint violations
 - **API Integration**: Fetch predictions from Flask backend
 - **Dynamic Content**: Recommendations update in real-time

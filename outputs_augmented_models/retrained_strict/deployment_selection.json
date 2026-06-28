@@ -1,0 +1,20 @@
+{
+  "structural": "linear_regression",
+  "aerodynamic": "mlp_regressor",
+  "structural_mlp": {
+    "regressor__alpha": 0.01,
+    "regressor__hidden_layer_sizes": [
+      128,
+      64
+    ],
+    "regressor__learning_rate_init": 0.003
+  },
+  "aerodynamic_mlp": {
+    "regressor__estimator__alpha": 0.001,
+    "regressor__estimator__hidden_layer_sizes": [
+      128,
+      64
+    ],
+    "regressor__estimator__learning_rate_init": 0.003
+  }
+}

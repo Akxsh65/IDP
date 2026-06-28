@@ -159,6 +159,12 @@ def build_augmented_dataset(
     cfd_df: pd.DataFrame,
     synthetic_df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Concatenate real rows with synthetic rows.
+
+    Warning: if ``structural_df`` / ``cfd_df`` contain the same rows used for
+    evaluation, metrics will be optimistically biased (train/test leakage).
+    Prefer :func:`build_leak_free_augmented_datasets` for model evaluation.
+    """
     structural_real = structural_df.copy()
     structural_real["is_synthetic"] = False
 
@@ -176,6 +182,27 @@ def build_augmented_dataset(
     cfd_real["is_synthetic"] = False
     aero_aug = pd.concat([cfd_real, synthetic_df], ignore_index=True)
     return structural_aug, aero_aug
+
+
+def build_leak_free_augmented_datasets(
+    structural_train: pd.DataFrame,
+    cfd_train: pd.DataFrame,
+    mode: str = "strict",
+    noise_scale: float = 1.0,
+    random_state: int = 42,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Build training-only augmented datasets with interpolators fit on train splits."""
+    synthetic_df = generate_synthetic_dataset(
+        structural_df=structural_train,
+        cfd_df=cfd_train,
+        mode=mode,
+        noise_scale=noise_scale,
+        random_state=random_state,
+    )
+    structural_aug, aero_aug = build_augmented_dataset(
+        structural_train, cfd_train, synthetic_df
+    )
+    return structural_aug, aero_aug, synthetic_df
 
 
 def build_parser() -> argparse.ArgumentParser:

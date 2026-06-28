@@ -75,82 +75,121 @@
         <!-- ===== OVERVIEW ===== -->
         <section class="tab-panel active" id="overview" role="tabpanel">
             <div class="grid grid-2">
-                <div class="glass-card reveal" data-delay="0">
+                <div class="glass-card reveal" data-delay="100">
                     <div class="card-header">
-                        <i class="fas fa-feather"></i>
-                        <h2>NACA 0009 Morphing Wing</h2>
+                        <i class="fas fa-project-diagram"></i>
+                        <h2>System Architecture</h2>
                     </div>
                     <div class="card-body">
-                        <div id="wingCanvasContainer" class="canvas-3d">
-                            <canvas id="wingCanvas"></canvas>
-                            <div class="canvas-overlay">
-                                <span class="canvas-hint"><i class="fas fa-hand-pointer"></i> Drag to rotate · Scroll to zoom</span>
+                        <div class="pipeline">
+                            <div class="pipeline-node" data-step="1">
+                                <div class="node-icon"><i class="fas fa-bolt"></i></div>
+                                <strong>MFC Voltages</strong>
+                                <small>V_lower, V_upper</small>
                             </div>
-                        </div>
-                        <div class="deflection-badge" id="deflectionBadge">
-                            <span class="deflection-label">Trailing Edge Deflection</span>
-                            <span class="deflection-value" id="overviewDeflection">— mm</span>
+                            <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                            <div class="pipeline-node" data-step="2">
+                                <div class="node-icon"><i class="fas fa-chart-line"></i></div>
+                                <strong>Structural Surrogate</strong>
+                                <small>Linear Regression · R² = 0.9999</small>
+                            </div>
+                            <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                            <div class="pipeline-node" data-step="3">
+                                <div class="node-icon"><i class="fas fa-ruler-vertical"></i></div>
+                                <strong>Wing Deflection</strong>
+                                <small>Trailing Edge (δ_TE)</small>
+                            </div>
+                            <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                            <div class="pipeline-node" data-step="4">
+                                <div class="node-icon"><i class="fas fa-brain"></i></div>
+                                <strong>Aerodynamic Surrogate</strong>
+                                <small>MLP Regressor · CL R² = 0.993</small>
+                            </div>
+                            <div class="pipeline-connector"><div class="connector-flow"></div></div>
+                            <div class="pipeline-node" data-step="5">
+                                <div class="node-icon"><i class="fas fa-wind"></i></div>
+                                <strong>Aerodynamic Coefficients</strong>
+                                <small>CL, CD, L/D Ratio</small>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="stack">
-                    <div class="glass-card reveal" data-delay="100">
-                        <div class="card-header">
-                            <i class="fas fa-project-diagram"></i>
-                            <h2>System Architecture</h2>
+                <div class="glass-card reveal" data-delay="200">
+                    <div class="card-header">
+                        <i class="fas fa-cog"></i>
+                        <h2>Wing Design Parameters</h2>
+                    </div>
+                    <div class="card-body">
+                        <div class="spec-grid">
+                            <div class="spec-item"><span class="spec-key">Airfoil</span><span class="spec-val">NACA 0009 (Symmetric)</span></div>
+                            <div class="spec-item"><span class="spec-key">Chord</span><span class="spec-val">127 mm</span></div>
+                            <div class="spec-item"><span class="spec-key">Morphing Region</span><span class="spec-val">Trailing Edge (80% chord)</span></div>
+                            <div class="spec-item"><span class="spec-key">Actuators</span><span class="spec-val">4 Bimorph MFC (d33 mode)</span></div>
+                            <div class="spec-item"><span class="spec-key">Voltage Range</span><span class="spec-val">−500 to +1500 V</span></div>
+                            <div class="spec-item"><span class="spec-key">Max Deflection</span><span class="spec-val">−8.47 mm</span></div>
                         </div>
-                        <div class="card-body">
-                            <div class="pipeline">
-                                <div class="pipeline-node" data-step="1">
-                                    <div class="node-icon"><i class="fas fa-bolt"></i></div>
-                                    <strong>MFC Voltages</strong>
-                                    <small>V_lower, V_upper</small>
-                                </div>
-                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
-                                <div class="pipeline-node" data-step="2">
-                                    <div class="node-icon"><i class="fas fa-chart-line"></i></div>
-                                    <strong>Structural Surrogate</strong>
-                                    <small>Linear Regression · R² = 0.9999</small>
-                                </div>
-                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
-                                <div class="pipeline-node" data-step="3">
-                                    <div class="node-icon"><i class="fas fa-ruler-vertical"></i></div>
-                                    <strong>Wing Deflection</strong>
-                                    <small>Trailing Edge (δ_TE)</small>
-                                </div>
-                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
-                                <div class="pipeline-node" data-step="4">
-                                    <div class="node-icon"><i class="fas fa-brain"></i></div>
-                                    <strong>Aerodynamic Surrogate</strong>
-                                    <small>MLP Regressor · CL R² = 0.998</small>
-                                </div>
-                                <div class="pipeline-connector"><div class="connector-flow"></div></div>
-                                <div class="pipeline-node" data-step="5">
-                                    <div class="node-icon"><i class="fas fa-wind"></i></div>
-                                    <strong>Aerodynamic Coefficients</strong>
-                                    <small>CL, CD, L/D Ratio</small>
-                                </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card wing-viz-card reveal mt-4">
+                <div class="card-header">
+                    <i class="fas fa-feather"></i>
+                    <h2>Interactive 3D Wing Model</h2>
+                    <span class="pitch-badge pitch-badge--header" id="overviewPitch" title="Angle of attack α">8° AoA</span>
+                </div>
+                <div class="card-body">
+                    <div id="wingCanvasContainer" class="canvas-3d canvas-3d--hero">
+                        <canvas id="wingCanvas"></canvas>
+                        <div class="canvas-overlay">
+                            <div class="wing-hud">
+                                <p class="wing-hud-title">Live wing state</p>
+                                <dl class="wing-hud-grid">
+                                    <div><dt>α</dt><dd id="wingHudAoA">8°</dd></div>
+                                    <div><dt>δ</dt><dd id="wingHudDeflection">−3.72 mm</dd></div>
+                                    <div><dt>V<sub>up</sub></dt><dd id="wingHudUpper">750 V</dd></div>
+                                    <div><dt>V<sub>lo</sub></dt><dd id="wingHudLower">−250 V</dd></div>
+                                </dl>
+                            </div>
+                            <div class="wing-legend-panel" aria-label="Scene guide">
+                                <p class="wing-legend-panel-title">Scene guide</p>
+                                <ul class="wing-legend-list">
+                                    <li class="wing-legend-item wing-legend-item--flow"><span class="wing-legend-dot"></span> Freestream flow</li>
+                                    <li class="wing-legend-item wing-legend-item--le"><span class="wing-legend-dot"></span> Leading edge</li>
+                                    <li class="wing-legend-item wing-legend-item--te"><span class="wing-legend-dot"></span> Trailing edge · morphs</li>
+                                    <li class="wing-legend-item wing-legend-item--mfc"><span class="wing-legend-dot"></span> Piezo MFC pads</li>
+                                    <li class="wing-legend-item wing-legend-item--airfoil"><span class="wing-legend-dot"></span> NACA 0009 airfoil</li>
+                                    <li class="wing-legend-item wing-legend-item--chord"><span class="wing-legend-dot wing-legend-dot--chord"></span> Chord reference</li>
+                                    <li class="wing-legend-item wing-legend-item--morph"><span class="wing-legend-dot"></span> Morph zone (80% c)</li>
+                                </ul>
+                            </div>
+                            <span class="canvas-hint"><i class="fas fa-hand-pointer"></i> Drag to rotate · Scroll to zoom</span>
+                        </div>
+                    </div>
+
+                    <div class="wing-meta-row">
+                        <div class="deflection-badge" id="deflectionBadge">
+                            <span class="deflection-label">Trailing Edge Deflection</span>
+                            <span class="deflection-value" id="overviewDeflection">— mm</span>
+                        </div>
+                        <div class="voltage-gauges voltage-gauges--inline">
+                            <div class="gauge-row">
+                                <span class="gauge-label">Lower MFC</span>
+                                <div class="gauge-track"><div class="gauge-fill gauge-fill--lower" id="lowerVoltageGauge"></div></div>
+                                <span class="gauge-val" id="gaugeLowerVal">−250 V</span>
+                            </div>
+                            <div class="gauge-row">
+                                <span class="gauge-label">Upper MFC</span>
+                                <div class="gauge-track"><div class="gauge-fill gauge-fill--upper" id="upperVoltageGauge"></div></div>
+                                <span class="gauge-val" id="gaugeUpperVal">750 V</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="glass-card reveal" data-delay="200">
-                        <div class="card-header">
-                            <i class="fas fa-cog"></i>
-                            <h2>Wing Design Parameters</h2>
-                        </div>
-                        <div class="card-body">
-                            <div class="spec-grid">
-                                <div class="spec-item"><span class="spec-key">Airfoil</span><span class="spec-val">NACA 0009 (Symmetric)</span></div>
-                                <div class="spec-item"><span class="spec-key">Chord</span><span class="spec-val">127 mm</span></div>
-                                <div class="spec-item"><span class="spec-key">Morphing Region</span><span class="spec-val">Trailing Edge (80% chord)</span></div>
-                                <div class="spec-item"><span class="spec-key">Actuators</span><span class="spec-val">4 Bimorph MFC (d33 mode)</span></div>
-                                <div class="spec-item"><span class="spec-key">Voltage Range</span><span class="spec-val">−500 to +1500 V</span></div>
-                                <div class="spec-item"><span class="spec-key">Max Deflection</span><span class="spec-val">−8.47 mm</span></div>
-                            </div>
-                        </div>
-                    </div>
+                    <p class="canvas-caption wing-view-caption">
+                        MFC voltages morph the trailing edge (δ) · wing tilt = angle of attack α · predicts C<sub>L</sub>, C<sub>D</sub> in Forward tab.
+                    </p>
                 </div>
             </div>
         </section>
@@ -190,7 +229,7 @@
                             </div>
 
                             <div class="control-group">
-                                <label for="pitchAngle">Pitch Angle (°)</label>
+                                <label for="pitchAngle">Angle of Attack (°)</label>
                                 <div class="slider-wrap">
                                     <input type="range" class="range-input" id="pitchAngleSlider" min="-4" max="20" value="8" step="1">
                                     <div class="range-track-fill" id="pitchAngleFill"></div>
@@ -198,6 +237,18 @@
                                 <div class="input-row">
                                     <input type="number" class="num-input" id="pitchAngle" value="8" min="-4" max="20" step="1">
                                     <span class="input-hint">−4° to 20°</span>
+                                </div>
+                            </div>
+
+                            <div class="live-preview-row">
+                                <label class="live-toggle">
+                                    <input type="checkbox" id="livePreviewToggle" checked>
+                                    <span class="live-toggle-track"></span>
+                                    <span>Live preview on slider change</span>
+                                </label>
+                                <div class="live-badge" id="livePreviewBadge">
+                                    <span class="live-dot" aria-hidden="true"></span>
+                                    <span class="live-badge-label">Live Preview</span>
                                 </div>
                             </div>
 
@@ -247,13 +298,21 @@
                         </div>
                         <div class="metric-card metric-ld">
                             <div class="metric-icon"><i class="fas fa-chart-line"></i></div>
-                            <div class="metric-info">
+                            <div class="metric-info metric-info--with-gauge">
                                 <span class="metric-label">Lift-to-Drag (L/D)</span>
-                                <div class="display-value" id="ldResult">
-                                    <span class="value" data-value="3.47">3.47</span>
-                                    <span class="unit">—</span>
+                                <div class="efficiency-gauge" id="ldEfficiencyGauge">
+                                    <div class="gauge-ring" id="ldGaugeRing">
+                                        <div class="gauge-inner">
+                                            <span class="gauge-value" id="ldGaugeValue">3.47</span>
+                                            <span class="gauge-unit">L/D</span>
+                                        </div>
+                                    </div>
+                                    <div class="gauge-meta">
+                                        <span>Session max</span>
+                                        <strong id="ldSessionMax">3.47</strong>
+                                    </div>
                                 </div>
-                                <small>Efficiency metric</small>
+                                <small>Efficiency vs session best</small>
                             </div>
                         </div>
                     </div>
@@ -272,16 +331,75 @@
                     <div class="glass-card reveal">
                         <div class="card-header">
                             <i class="fas fa-mountain"></i>
-                            <h2>3D Response Surface — CL vs Voltages</h2>
+                            <h2 id="surfaceCardTitle">3D Response Surface — C<sub>L</sub> vs Voltages</h2>
+                            <div class="surface-mode-toggle" role="group" aria-label="Response surface coefficient">
+                                <button type="button" class="mode-btn active" data-surface-mode="cl">C<sub>L</sub></button>
+                                <button type="button" class="mode-btn" data-surface-mode="cd">C<sub>D</sub></button>
+                            </div>
+                            <span class="surface-pitch-tag" id="surfacePitchLabel">8° AoA</span>
                             <button class="btn-icon" id="refreshSurface" title="Refresh surface"><i class="fas fa-sync-alt"></i></button>
                         </div>
                         <div class="card-body">
                             <div id="surfaceCanvasContainer" class="canvas-3d canvas-3d--wide">
                                 <canvas id="surfaceCanvas"></canvas>
+                                <div class="surface-axis-legend" aria-hidden="true">
+                                    <span class="axis-key axis-key--x"><i></i> X · Upper MFC (V)</span>
+                                    <span class="axis-key axis-key--z"><i></i> Z · Lower MFC (V)</span>
+                                    <span class="axis-key axis-key--y"><i></i> Y · C<sub>L</sub></span>
+                                    <span class="axis-key axis-key--marker"><i></i> (Lower V, Upper V, C<sub>L</sub>)</span>
+                                </div>
                             </div>
-                            <p class="canvas-caption">Interactive CL response surface at current pitch angle · Drag to rotate</p>
+                            <p class="canvas-caption">
+                                <span id="surfaceClRange">C_L range: —</span>
+                                · Y-axis uses fixed physical scale (C_L: 0–0.35, C_D: 0.01–0.16)
+                                · Red dot = current operating point · Drag to rotate
+                            </p>
                         </div>
                     </div>
+
+                    <!-- ===== DEFLECTION PROFILE + PITCH SWEEP ===== -->
+                    <div class="grid grid-2 reveal">
+                        <div class="glass-card chart-card">
+                            <div class="card-header">
+                                <i class="fas fa-drafting-compass"></i>
+                                <h2>Chord-wise Deflection Profile</h2>
+                                <span class="surface-pitch-tag">NACA 0009</span>
+                            </div>
+                            <div class="card-body chart-body">
+                                <canvas id="deflectionProfileChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <i class="fas fa-wind"></i>
+                                <h2>Angle of Attack Sweep</h2>
+                            </div>
+                            <div class="card-body">
+                                <div class="sweep-controls">
+                                    <button id="sweepPlayBtn" class="btn btn-primary">
+                                        <i class="fas fa-play" id="sweepIcon"></i>
+                                        <span id="sweepBtnLabel">Sweep −4° → 20°</span>
+                                    </button>
+                                    <span class="sweep-status" id="sweepStatus">Uses current voltage settings</span>
+                                </div>
+                                <div class="sweep-chart-body">
+                                    <canvas id="sweepChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card mlp-card mlp-card--wide reveal mt-4">
+                <div class="card-header">
+                    <i class="fas fa-network-wired"></i>
+                    <h2>Aerodynamic MLP Forward Pass</h2>
+                    <span class="surface-pitch-tag" id="mlpArchTag">[2 → 128 → 64 → 2]</span>
+                </div>
+                <div class="card-body">
+                    <div id="mlpAnimationContainer"></div>
                 </div>
             </div>
         </section>
@@ -296,11 +414,11 @@
                             <div class="control-group">
                                 <label for="targetCL">Target Lift Coefficient (CL)</label>
                                 <input type="number" class="num-input full" id="targetCL" value="0.15" min="0" max="0.35" step="0.01">
-                                <span class="input-hint">Max achievable CL depends on pitch angle</span>
+                                <span class="input-hint">Max achievable CL depends on angle of attack</span>
                             </div>
 
                             <div class="control-group">
-                                <label for="inversePitchAngle">Pitch Angle (°)</label>
+                                <label for="inversePitchAngle">Angle of Attack (°)</label>
                                 <div class="slider-wrap">
                                     <input type="range" class="range-input" id="inversePitchSlider" min="-4" max="20" value="8" step="1">
                                     <div class="range-track-fill" id="inversePitchFill"></div>
@@ -367,14 +485,14 @@
                         <div class="perf-card">
                             <div class="perf-glow"></div>
                             <h3>Aerodynamic CL</h3>
-                            <p class="perf-score">R² = 0.998</p>
-                            <p class="perf-detail">MAE: 0.0022 · Test Samples: 40</p>
+                            <p class="perf-score">R² = 0.993</p>
+                            <p class="perf-detail">MAE: 0.00343 · Test Samples: 41</p>
                         </div>
                         <div class="perf-card">
                             <div class="perf-glow"></div>
                             <h3>Aerodynamic CD</h3>
-                            <p class="perf-score">R² = 0.991</p>
-                            <p class="perf-detail">MAE: 0.0021 · Training: Augmented</p>
+                            <p class="perf-score">R² = 0.988</p>
+                            <p class="perf-detail">MAE: 0.00221 · Test Samples: 41</p>
                         </div>
                     </div>
                 </div>
@@ -411,11 +529,36 @@
                             <small>total rows</small>
                         </div>
                         <div class="augment-stat augment-highlight">
-                            <div class="augment-ring"><span class="augment-num">20×</span></div>
-                            <h4>CD Improvement</h4>
-                            <small>R² increase</small>
+                            <div class="augment-ring"><span class="augment-num">+16%</span></div>
+                            <h4>CD R² Gain</h4>
+                            <small>0.827 → 0.988 (LR → MLP+aug)</small>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ===== PARITY PLOT ===== -->
+            <div class="glass-card reveal mt-4">
+                <div class="card-header">
+                    <i class="fas fa-bullseye"></i>
+                    <h2>Parity Plot — Predicted vs Actual (201 Real CFD Points)</h2>
+                </div>
+                <div class="card-body">
+                    <div class="parity-grid">
+                        <div class="parity-panel">
+                            <p class="parity-label">Lift Coefficient (C<sub>L</sub>)</p>
+                            <div class="parity-chart-body">
+                                <canvas id="parityClChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="parity-panel">
+                            <p class="parity-label">Drag Coefficient (C<sub>D</sub>)</p>
+                            <div class="parity-chart-body">
+                                <canvas id="parityCdChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="canvas-caption">Each dot = one real CFD simulation. Points on the dashed diagonal = perfect model. Coloured by angle of attack (−4° to 20°).</p>
                 </div>
             </div>
         </section>
@@ -431,9 +574,9 @@
                             <div class="info-row"><span>Inputs</span><span>lower_mfc_v, upper_mfc_v</span></div>
                             <div class="info-row"><span>Output</span><span>deflection_mm</span></div>
                             <div class="info-row"><span>Preprocessing</span><span>StandardScaler</span></div>
-                            <div class="info-row"><span>Training Samples</span><span>240 (80% of 300)</span></div>
-                            <div class="info-row"><span>Test Samples</span><span>60 (20% of 300)</span></div>
-                            <div class="info-row"><span>Validation</span><span>5-fold CV</span></div>
+                            <div class="info-row"><span>Train Samples</span><span>587 (240 real + 347 synthetic)</span></div>
+                            <div class="info-row"><span>Test Samples</span><span>60 held-out ANSYS points</span></div>
+                            <div class="info-row"><span>Validation</span><span>5-fold CV on augmented train</span></div>
                             <div class="info-row"><span>Performance</span><span class="highlight">R² = 0.999998</span></div>
                         </div>
                     </div>
@@ -444,13 +587,13 @@
                     <div class="card-body">
                         <div class="info-table">
                             <div class="info-row"><span>Model Type</span><span>MLP Regressor (MultiOutput)</span></div>
-                            <div class="info-row"><span>Inputs</span><span>deflection_mm, pitch_deg</span></div>
+                            <div class="info-row"><span>Inputs</span><span>deflection_mm, pitch_deg (angle of attack)</span></div>
                             <div class="info-row"><span>Outputs</span><span>cl, cd</span></div>
-                            <div class="info-row"><span>Hidden Layers</span><span>[64, 32] neurons</span></div>
+                            <div class="info-row"><span>Hidden Layers</span><span>[128, 64] neurons</span></div>
                             <div class="info-row"><span>Activation</span><span>ReLU</span></div>
-                            <div class="info-row"><span>Optimizer</span><span>Adam (lr=0.003)</span></div>
-                            <div class="info-row"><span>Training Samples</span><span>8,000 (augmented)</span></div>
-                            <div class="info-row"><span>Test Samples</span><span>40 (real CFD)</span></div>
+                            <div class="info-row"><span>Optimizer</span><span>Adam (lr=0.003, L2=0.001)</span></div>
+                            <div class="info-row"><span>Train Samples</span><span>3,254 (160 real + 3,094 synthetic)</span></div>
+                            <div class="info-row"><span>Test Samples</span><span>41 held-out CFD points</span></div>
                         </div>
                     </div>
                 </div>

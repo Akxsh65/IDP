@@ -19,12 +19,14 @@ python train_structural_surrogates.py
 # Train aerodynamic surrogates (original CFD data)
 python train_aerodynamic_surrogates.py
 
-# Generate synthetic data and retrain
+# Generate synthetic data (optional — for inspection / legacy CSV export)
 python generate_synthetic_data.py --mode strict
 python generate_synthetic_data.py --mode noisy --noise-scale 1.0
+
+# Retrain with leak-free split, CV, and hyperparameter tuning
 python train_augmented_surrogates.py
 
-# Forward prediction
+# Forward prediction (`--pitch-deg` is the legacy CLI flag for angle of attack, stored as `pitch_deg` in data)
 python predict_cl_cd.py --upper-v 750 --lower-v -50 --pitch-deg 8
 
 # Inverse voltage recommendation
@@ -36,6 +38,7 @@ python generate_publication_plots.py
 
 ## Documentation
 
+- `ML_PIPELINE_GUIDE.md` — **detailed guide to data, training, augmentation, and inference**
 - `RESULTS_SUMMARY.md` — full pipeline results
 - `outputs_publication_figures/FIGURES_GUIDE.md` — figure explanations
 

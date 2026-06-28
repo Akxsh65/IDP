@@ -12,6 +12,8 @@ import json
 from datetime import datetime
 import sys
 
+from data_loaders import load_structure_samples
+
 # Initialize Flask app
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -82,7 +84,7 @@ def predict_forward():
         if not (CONSTRAINTS['upper_voltage']['min'] <= upper_v <= CONSTRAINTS['upper_voltage']['max']):
             errors.append(f"Upper voltage must be between {CONSTRAINTS['upper_voltage']['min']} and {CONSTRAINTS['upper_voltage']['max']} V")
         if not (CONSTRAINTS['pitch_angle']['min'] <= pitch <= CONSTRAINTS['pitch_angle']['max']):
-            errors.append(f"Pitch angle must be between {CONSTRAINTS['pitch_angle']['min']} and {CONSTRAINTS['pitch_angle']['max']}°")
+            errors.append(f"Angle of attack must be between {CONSTRAINTS['pitch_angle']['min']} and {CONSTRAINTS['pitch_angle']['max']}°")
         
         if errors:
             return jsonify({'success': False, 'errors': errors}), 400
@@ -131,12 +133,12 @@ def predict_inverse():
         # Validate inputs
         errors = []
         if not (CONSTRAINTS['pitch_angle']['min'] <= pitch <= CONSTRAINTS['pitch_angle']['max']):
-            errors.append(f"Pitch angle must be between {CONSTRAINTS['pitch_angle']['min']} and {CONSTRAINTS['pitch_angle']['max']}°")
+            errors.append(f"Angle of attack must be between {CONSTRAINTS['pitch_angle']['min']} and {CONSTRAINTS['pitch_angle']['max']}°")
         
         # Get CL max at this pitch
         cl_max = CL_MAX_BY_PITCH.get(int(pitch), 0.3079)
         if target_cl > cl_max:
-            errors.append(f"Target CL ({target_cl}) exceeds maximum achievable CL ({cl_max:.4f}) at {pitch}°")
+            errors.append(f"Target CL ({target_cl}) exceeds maximum achievable CL ({cl_max:.4f}) at {pitch}° angle of attack")
         if target_cl < 0:
             errors.append("Target CL must be positive")
         
@@ -219,27 +221,28 @@ def get_model_info():
                 'mae': 0.00164,
                 'rmse': 0.00294,
                 'r2': 0.999998,
-                'training_samples': 240,
+                'training_samples': 587,
                 'test_samples': 60
             },
             'aerodynamic': {
                 'type': 'MLP Regressor (MultiOutput)',
                 'inputs': ['deflection_mm', 'pitch_deg'],
                 'outputs': ['cl', 'cd'],
-                'hidden_layers': [64, 32],
+                'hidden_layers': [128, 64],
                 'activation': 'relu',
-                'cl_mae': 0.0022,
-                'cl_r2': 0.998,
-                'cd_mae': 0.0021,
-                'cd_r2': 0.991,
-                'training_samples': 8000,
-                'test_samples': 40
+                'optimizer': 'Adam (lr=0.003, L2=0.001)',
+                'cl_mae': 0.00343,
+                'cl_r2': 0.993,
+                'cd_mae': 0.00221,
+                'cd_r2': 0.988,
+                'training_samples': 3254,
+                'test_samples': 41
             }
         },
         'chained_performance': {
-            'cl_mae': 0.0022,
-            'cd_mae': 0.0021,
-            'validation_points': 201
+            'cl_mae': 0.00343,
+            'cd_mae': 0.00221,
+            'validation_points': 41
         },
         'wing_design': {
             'airfoil': 'NACA 0009',
@@ -287,6 +290,168 @@ def get_response_surface():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/structural-samples', methods=['GET'])
+def get_structural_samples():
+    """Return 300 ANSYS samples and regression plane mesh for 3D scatter."""
+    try:
+        excel_path = PROJECT_DIR / 'Structure samples.xlsx'
+        df = load_structure_samples(excel_path)
+        samples = df.round(4).to_dict('records')
+
+        lower_grid = np.linspace(-500, -50, 14)
+        upper_grid = np.linspace(50, 1500, 14)
+        plane = []
+        for lower_v in lower_grid:
+            for upper_v in upper_grid:
+                def_input = pd.DataFrame([{'lower_mfc_v': lower_v, 'upper_mfc_v': upper_v}])
+                deflection = float(structural_model.predict(def_input)[0])
+                plane.append({
+                    'lower_mfc_v': float(lower_v),
+                    'upper_mfc_v': float(upper_v),
+                    'deflection_mm': float(round(deflection, 4)),
+                })
+
+        return jsonify({
+            'success': True,
+            'samples': samples,
+            'plane': plane,
+            'r2': 0.999998,
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/mlp-weights', methods=['GET'])
+def get_mlp_weights():
+    """Return subsampled MLP weights for forward-pass SVG animation."""
+    try:
+        regressor = aerodynamic_model.named_steps['regressor']
+        est_cl = regressor.estimators_[0]
+        est_cd = regressor.estimators_[1]
+
+        def subsample_matrix(matrix, out_count, in_count):
+            matrix = np.abs(np.asarray(matrix))
+            in_idx = np.linspace(0, matrix.shape[0] - 1, in_count, dtype=int)
+            out_idx = np.linspace(0, matrix.shape[1] - 1, out_count, dtype=int)
+            return matrix[np.ix_(in_idx, out_idx)].tolist()
+
+        # Schematic layers [2 → 6 → 5 → 2] representing deployed [2 → 128 → 64 → 2]
+        w01 = (np.abs(est_cl.coefs_[0]) + np.abs(est_cd.coefs_[0])) / 2
+        w12 = (np.abs(est_cl.coefs_[1]) + np.abs(est_cd.coefs_[1])) / 2
+        w23 = np.column_stack([
+            np.abs(est_cl.coefs_[2]).reshape(-1),
+            np.abs(est_cd.coefs_[2]).reshape(-1),
+        ])
+
+        return jsonify({
+            'success': True,
+            'architecture': [2, 128, 64, 2],
+            'visible_layers': [2, 6, 5, 2],
+            'input_labels': ['δ', 'α'],
+            'output_labels': ['C_L', 'C_D'],
+            'input_names': ['deflection_mm', 'pitch_deg'],
+            'output_names': ['cl', 'cd'],
+            'weights': [
+                subsample_matrix(w01, 6, 2),
+                subsample_matrix(w12, 5, 6),
+                subsample_matrix(w23, 2, 5),
+            ],
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _mlp_head_forward(est, x_scaled):
+    """Run one MLP output head and return layer activations plus weights/biases."""
+    activations = [x_scaled.tolist()]
+    weights = []
+    biases = []
+    h = np.asarray(x_scaled, dtype=float).copy()
+
+    for i, (W, b) in enumerate(zip(est.coefs_, est.intercepts_)):
+        weights.append(np.round(W, 6).tolist())
+        biases.append(np.round(b, 6).tolist())
+        h = h @ W + b
+        if i < len(est.coefs_) - 1:
+            h = np.maximum(0.0, h)
+        activations.append(np.round(h.reshape(-1), 6).tolist())
+
+    return activations, weights, biases
+
+
+@app.route('/api/mlp-forward-pass', methods=['POST'])
+def mlp_forward_pass():
+    """Return full forward-pass activations and weight matrices for the aerodynamic MLP."""
+    try:
+        if aerodynamic_model is None:
+            return jsonify({'success': False, 'error': 'Models not loaded'}), 503
+
+        data = request.get_json() or {}
+        deflection = float(data.get('deflection_mm'))
+        alpha = float(data.get('alpha_deg', data.get('pitch_angle', 8)))
+
+        aero_input = pd.DataFrame([{'deflection_mm': deflection, 'pitch_deg': alpha}])
+        x_scaled = aerodynamic_model.named_steps['scaler'].transform(aero_input)[0]
+
+        regressor = aerodynamic_model.named_steps['regressor']
+        est_cl = regressor.estimators_[0]
+        est_cd = regressor.estimators_[1]
+
+        acts_cl, w_cl, b_cl = _mlp_head_forward(est_cl, x_scaled)
+        acts_cd, w_cd, b_cd = _mlp_head_forward(est_cd, x_scaled)
+
+        preds = aerodynamic_model.predict(aero_input)[0]
+
+        return jsonify({
+            'success': True,
+            'architecture': [2, 128, 64, 2],
+            'inputs_raw': [round(deflection, 6), round(alpha, 6)],
+            'inputs_scaled': np.round(x_scaled, 6).tolist(),
+            'input_labels': ['δ (mm)', 'α (°)'],
+            'scaler_mean': np.round(aerodynamic_model.named_steps['scaler'].mean_, 6).tolist(),
+            'scaler_scale': np.round(aerodynamic_model.named_steps['scaler'].scale_, 6).tolist(),
+            'heads': {
+                'cl': {
+                    'label': 'C_L head',
+                    'output_label': 'C_L',
+                    'output_value': round(float(preds[0]), 6),
+                    'activations': acts_cl,
+                    'weights': w_cl,
+                    'biases': b_cl,
+                },
+                'cd': {
+                    'label': 'C_D head',
+                    'output_label': 'C_D',
+                    'output_value': round(float(preds[1]), 6),
+                    'activations': acts_cd,
+                    'weights': w_cd,
+                    'biases': b_cd,
+                },
+            },
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/parity-data', methods=['GET'])
+def get_parity_data():
+    """Return predicted vs actual CL/CD for all 201 real CFD points"""
+    try:
+        cfd_path = PROJECT_DIR / 'outputs_aerodynamic_surrogates' / 'cfd_dataset_flat.csv'
+        df = pd.read_csv(cfd_path)
+
+        # Batch prediction — much faster than one-by-one
+        aero_features = df[['deflection_mm', 'pitch_deg']]
+        preds = aerodynamic_model.predict(aero_features)
+        df['predicted_cl'] = preds[:, 0]
+        df['predicted_cd'] = preds[:, 1]
+
+        points = df[['cl', 'cd', 'predicted_cl', 'predicted_cd', 'pitch_deg']].round(6).to_dict('records')
+        return jsonify({'success': True, 'points': points})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':
